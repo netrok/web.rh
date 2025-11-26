@@ -1,5 +1,5 @@
 // src/pages/EmpleadosPage.tsx
-import React, { useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   fetchEmpleados,
   type Empleado,
@@ -7,51 +7,26 @@ import {
   deleteEmpleado,
 } from "../api/empleadosApi";
 import { EmpleadoFormModal } from "../components/EmpleadoFormModal";
+import { EmpleadosToolbar } from "../components/EmpleadosToolbar";
+import { EmpleadosStats } from "../components/EmpleadosStats";
+import { EmpleadosTable } from "../components/EmpleadosTable";
+import { ConfirmDeleteDialog } from "../components/ConfirmDeleteDialog";
 import { useNotification } from "../context/NotificationContext";
 
 import {
   Container,
   Paper,
-  Table,
-  TableHead,
-  TableRow,
-  TableCell,
-  TableBody,
   Typography,
-  IconButton,
-  Chip,
   CircularProgress,
   Alert,
   Stack,
   Toolbar,
-  Button,
-  TextField,
-  Pagination,
-  FormControl,
-  InputLabel,
-  Select,
-  Menu,
-  MenuItem,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
 } from "@mui/material";
-import type { SelectChangeEvent } from "@mui/material/Select";
-import {
-  Edit as EditIcon,
-  Delete as DeleteIcon,
-  Add as AddIcon,
-} from "@mui/icons-material";
 
 // Libs para exportar
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
-
-function formatearNombre(e: Empleado) {
-  return `${e.nombres} ${e.apellidoPaterno} ${e.apellidoMaterno ?? ""}`.trim();
-}
 
 type ActivoFilter = "todos" | "activos" | "inactivos";
 
@@ -70,25 +45,15 @@ export function EmpleadosPage() {
   const [search, setSearch] = useState("");
   const [activoFilter, setActivoFilter] = useState<ActivoFilter>("todos");
 
-  // Menú de exportación
-  const [exportAnchorEl, setExportAnchorEl] = useState<null | HTMLElement>(
-    null
-  );
-  const exportMenuOpen = Boolean(exportAnchorEl);
+  // Paginación local
+  const [page, setPage] = useState(0);
+  const [pageSize] = useState(20);
 
-  // Diálogo de confirmación de borrado
+  // Confirmación eliminación
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [empleadoToDelete, setEmpleadoToDelete] = useState<Empleado | null>(
     null
   );
-
-  const handleOpenExportMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
-    setExportAnchorEl(event.currentTarget);
-  };
-
-  const handleCloseExportMenu = () => {
-    setExportAnchorEl(null);
-  };
 
   const getActivoValue = (): boolean | undefined => {
     if (activoFilter === "activos") return true;
@@ -97,19 +62,19 @@ export function EmpleadosPage() {
   };
 
   const cargarEmpleados = async (
-    page = 0,
-    size = 20,
-    currentSearch = search,
-    currentActivo = getActivoValue()
+    pageParam: number,
+    sizeParam: number,
+    searchParam: string,
+    activoParam: boolean | undefined
   ) => {
     try {
       setLoading(true);
       setError(null);
       const data = await fetchEmpleados(
-        page,
-        size,
-        currentSearch,
-        currentActivo
+        pageParam,
+        sizeParam,
+        searchParam,
+        activoParam
       );
       setEmpleadosPage(data);
     } catch (err: any) {
@@ -125,12 +90,18 @@ export function EmpleadosPage() {
     }
   };
 
+  // Carga inicial + cuando cambian página o filtro de activo
   useEffect(() => {
-    cargarEmpleados();
+    cargarEmpleados(page, pageSize, search, getActivoValue());
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [page, activoFilter]);
 
   const empleados = empleadosPage?.content ?? [];
+
+  // Stats de la página actual
+  const totalEnPagina = empleados.length;
+  const activosEnPagina = empleados.filter((e) => e.activo).length;
+  const inactivosEnPagina = totalEnPagina - activosEnPagina;
 
   const abrirNuevo = () => {
     setEmpleadoEdit(null);
@@ -142,8 +113,7 @@ export function EmpleadosPage() {
     setShowModal(true);
   };
 
-  // --- Confirmación de eliminación ---
-
+  // Confirmación de eliminación
   const solicitarEliminar = (empleado: Empleado) => {
     setEmpleadoToDelete(empleado);
     setConfirmOpen(true);
@@ -162,12 +132,7 @@ export function EmpleadosPage() {
 
     try {
       await deleteEmpleado(empleadoToDelete.id);
-      await cargarEmpleados(
-        empleadosPage?.number ?? 0,
-        empleadosPage?.size ?? 20,
-        search,
-        getActivoValue()
-      );
+      await cargarEmpleados(page, pageSize, search, getActivoValue());
       showSuccess("Empleado eliminado correctamente.");
     } catch (err: any) {
       console.error("Error al eliminar empleado:", err);
@@ -177,34 +142,24 @@ export function EmpleadosPage() {
     }
   };
 
-  // --- Fin confirmación eliminación ---
-
-  const handleSearchClick = () => {
-    cargarEmpleados(0, empleadosPage?.size ?? 20, search, getActivoValue());
+  // Buscar
+  const handleSearchSubmit = () => {
+    setPage(0);
+    cargarEmpleados(0, pageSize, search, getActivoValue());
   };
 
-  const handleSearchKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      handleSearchClick();
-    }
-  };
-
-  const handlePageChange = (_: React.ChangeEvent<unknown>, page: number) => {
-    const size = empleadosPage?.size ?? 20;
-    cargarEmpleados(page - 1, size, search, getActivoValue());
-  };
-
-  const handleActivoChange = (event: SelectChangeEvent<ActivoFilter>) => {
-    const value = event.target.value as ActivoFilter;
+  // Cambio de filtro de activo (auto-recarga con useEffect)
+  const handleActivoFilterChange = (value: ActivoFilter) => {
     setActivoFilter(value);
-
-    const activoValue =
-      value === "activos" ? true : value === "inactivos" ? false : undefined;
-
-    cargarEmpleados(0, empleadosPage?.size ?? 20, search, activoValue);
+    setPage(0);
   };
 
-  // ---------- EXPORTACIONES ----------
+  // Cambio de página desde la tabla (0-based)
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+  };
+
+  // ---------- EXPORTACIONES (sobre la página actual) ----------
 
   const buildPlainRows = () =>
     empleados.map((e) => ({
@@ -220,8 +175,6 @@ export function EmpleadosPage() {
     }));
 
   const handleExportCsv = () => {
-    handleCloseExportMenu();
-
     if (!empleados || empleados.length === 0) {
       showError("No hay empleados para exportar.");
       return;
@@ -259,8 +212,6 @@ export function EmpleadosPage() {
   };
 
   const handleExportXlsx = () => {
-    handleCloseExportMenu();
-
     if (!empleados || empleados.length === 0) {
       showError("No hay empleados para exportar.");
       return;
@@ -291,8 +242,6 @@ export function EmpleadosPage() {
   };
 
   const handleExportPdf = () => {
-    handleCloseExportMenu();
-
     if (!empleados || empleados.length === 0) {
       showError("No hay empleados para exportar.");
       return;
@@ -324,7 +273,6 @@ export function EmpleadosPage() {
       r.Activo,
     ]);
 
-    // Filtros para mostrar en el PDF
     const filtros: string[] = [];
     if (search.trim()) {
       filtros.push(`Búsqueda: "${search.trim()}"`);
@@ -371,12 +319,7 @@ export function EmpleadosPage() {
 
   const handleModalSaved = () => {
     const isEdit = !!empleadoEdit;
-    cargarEmpleados(
-      empleadosPage?.number ?? 0,
-      empleadosPage?.size ?? 20,
-      search,
-      getActivoValue()
-    );
+    cargarEmpleados(page, pageSize, search, getActivoValue());
     setEmpleadoEdit(null);
 
     showSuccess(
@@ -385,10 +328,6 @@ export function EmpleadosPage() {
         : "Empleado creado correctamente."
     );
   };
-
-  const nombreEmpleadoAEliminar = empleadoToDelete
-    ? `${empleadoToDelete.numEmpleado} - ${formatearNombre(empleadoToDelete)}`
-    : "";
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -407,61 +346,26 @@ export function EmpleadosPage() {
             Empleados
           </Typography>
 
-          <Stack
-            direction="row"
-            spacing={1}
-            alignItems="center"
-            sx={{ flexGrow: 1, justifyContent: "flex-end", flexWrap: "wrap" }}
-          >
-            <TextField
-              size="small"
-              placeholder="Buscar por número, nombre o apellido"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              onKeyDown={handleSearchKeyDown}
-              sx={{ minWidth: 260 }}
-            />
-
-            <FormControl size="small" sx={{ minWidth: 150 }}>
-              <InputLabel id="activo-filter-label">Estado</InputLabel>
-              <Select
-                labelId="activo-filter-label"
-                label="Estado"
-                value={activoFilter}
-                onChange={handleActivoChange}
-              >
-                <MenuItem value="todos">Todos</MenuItem>
-                <MenuItem value="activos">Activos</MenuItem>
-                <MenuItem value="inactivos">Inactivos</MenuItem>
-              </Select>
-            </FormControl>
-
-            <Button variant="outlined" onClick={handleSearchClick}>
-              Buscar
-            </Button>
-
-            <Button variant="outlined" onClick={handleOpenExportMenu}>
-              Exportar
-            </Button>
-            <Menu
-              anchorEl={exportAnchorEl}
-              open={exportMenuOpen}
-              onClose={handleCloseExportMenu}
-            >
-              <MenuItem onClick={handleExportCsv}>Exportar CSV</MenuItem>
-              <MenuItem onClick={handleExportXlsx}>Exportar XLSX</MenuItem>
-              <MenuItem onClick={handleExportPdf}>Exportar PDF</MenuItem>
-            </Menu>
-
-            <Button
-              variant="contained"
-              startIcon={<AddIcon />}
-              onClick={abrirNuevo}
-            >
-              Nuevo empleado
-            </Button>
-          </Stack>
+          <EmpleadosToolbar
+            search={search}
+            onSearchChange={setSearch}
+            onSearchSubmit={handleSearchSubmit}
+            activoFilter={activoFilter}
+            onActivoFilterChange={handleActivoFilterChange}
+            onNuevo={abrirNuevo}
+            onExportCsv={handleExportCsv}
+            onExportXlsx={handleExportXlsx}
+            onExportPdf={handleExportPdf}
+          />
         </Toolbar>
+
+        {!loading && !error && (
+          <EmpleadosStats
+            total={totalEnPagina}
+            activos={activosEnPagina}
+            inactivos={inactivosEnPagina}
+          />
+        )}
 
         {loading && (
           <Stack alignItems="center" sx={{ py: 4 }}>
@@ -476,65 +380,14 @@ export function EmpleadosPage() {
         )}
 
         {!loading && !error && empleados.length > 0 && (
-          <>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>ID</TableCell>
-                  <TableCell>Número</TableCell>
-                  <TableCell>Nombre</TableCell>
-                  <TableCell>Teléfono</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Fecha ingreso</TableCell>
-                  <TableCell>Activo</TableCell>
-                  <TableCell align="right">Acciones</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {empleados.map((e) => (
-                  <TableRow key={e.id} hover>
-                    <TableCell>{e.id}</TableCell>
-                    <TableCell>{e.numEmpleado}</TableCell>
-                    <TableCell>{formatearNombre(e)}</TableCell>
-                    <TableCell>{e.telefono ?? "-"}</TableCell>
-                    <TableCell>{e.email ?? "-"}</TableCell>
-                    <TableCell>{e.fechaIngreso}</TableCell>
-                    <TableCell>
-                      <Chip
-                        label={e.activo ? "Activo" : "Inactivo"}
-                        color={e.activo ? "success" : "default"}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell align="right">
-                      <IconButton size="small" onClick={() => abrirEditar(e)}>
-                        <EditIcon fontSize="small" />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        color="error"
-                        onClick={() => solicitarEliminar(e)}
-                      >
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-
-            {empleadosPage && empleadosPage.totalPages > 1 && (
-              <Stack direction="row" justifyContent="flex-end" sx={{ mt: 2 }}>
-                <Pagination
-                  count={empleadosPage.totalPages}
-                  page={empleadosPage.number + 1}
-                  onChange={handlePageChange}
-                  color="primary"
-                  size="small"
-                />
-              </Stack>
-            )}
-          </>
+          <EmpleadosTable
+            empleados={empleados}
+            page={page}
+            totalPages={empleadosPage?.totalPages ?? 1}
+            onPageChange={handlePageChange}
+            onEdit={abrirEditar}
+            onDelete={solicitarEliminar}
+          />
         )}
       </Paper>
 
@@ -545,24 +398,12 @@ export function EmpleadosPage() {
         empleado={empleadoEdit}
       />
 
-      {/* Diálogo de confirmación */}
-      <Dialog open={confirmOpen} onClose={handleCloseConfirm} maxWidth="xs" fullWidth>
-        <DialogTitle>Confirmar eliminación</DialogTitle>
-        <DialogContent dividers>
-          <Typography>
-            ¿Seguro que quieres eliminar al empleado:
-          </Typography>
-          <Typography fontWeight="bold" sx={{ mt: 1 }}>
-            {nombreEmpleadoAEliminar}
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseConfirm}>Cancelar</Button>
-          <Button onClick={handleConfirmDelete} color="error" variant="contained">
-            Eliminar
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ConfirmDeleteDialog
+        open={confirmOpen}
+        empleado={empleadoToDelete}
+        onCancel={handleCloseConfirm}
+        onConfirm={handleConfirmDelete}
+      />
     </Container>
   );
 }
