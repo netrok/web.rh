@@ -27,7 +27,7 @@ type Props = {
   empleado?: Empleado | null;
 };
 
-// Forzamos todo a string + activo
+// Estado del formulario (todo string + activo)
 type FormState = {
   numEmpleado: string;
   nombres: string;
@@ -35,9 +35,12 @@ type FormState = {
   apellidoMaterno: string;
   telefono: string;
   email: string;
-  fechaIngreso: string;
+  fechaIngreso: string; // yyyy-MM-dd
   activo: boolean;
 };
+
+type FormErrors = Partial<Record<keyof FormState, string>>;
+type FormTouched = Partial<Record<keyof FormState, boolean>>;
 
 const emptyForm: FormState = {
   numEmpleado: "",
@@ -62,6 +65,9 @@ export const EmpleadoFormModal: React.FC<Props> = ({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [errors, setErrors] = useState<FormErrors>({});
+  const [touched, setTouched] = useState<FormTouched>({});
+
   const isEditMode = Boolean(empleado);
 
   useEffect(() => {
@@ -76,20 +82,99 @@ export const EmpleadoFormModal: React.FC<Props> = ({
         fechaIngreso: empleado.fechaIngreso,
         activo: empleado.activo,
       });
+      setErrors({});
+      setTouched({});
+      setError(null);
     } else if (open && !empleado) {
       setForm(emptyForm);
+      setErrors({});
+      setTouched({});
       setError(null);
     }
   }, [empleado, open]);
+
+  const validateField = (
+    field: keyof FormState,
+    value: unknown
+  ): string | undefined => {
+    const str = (value ?? "").toString().trim();
+
+    switch (field) {
+      case "numEmpleado":
+        if (!isEditMode) {
+          if (!str) return "El número de empleado es obligatorio.";
+          if (!/^\d+$/.test(str)) {
+            return "El número de empleado solo debe contener dígitos.";
+          }
+        }
+        return;
+
+      case "nombres":
+        if (!str) return "El nombre es obligatorio.";
+        if (str.length < 2) return "El nombre es demasiado corto.";
+        return;
+
+      case "apellidoPaterno":
+        if (!str) return "El apellido paterno es obligatorio.";
+        return;
+
+      case "apellidoMaterno":
+        // Opcional, pero puedes exigir mínimo si se llena
+        if (str && str.length < 2) {
+          return "El apellido materno es demasiado corto.";
+        }
+        return;
+
+      case "telefono":
+        if (!str) return;
+        if (!/^\d{10}$/.test(str)) {
+          return "El teléfono debe tener 10 dígitos.";
+        }
+        return;
+
+      case "email":
+        if (!str) return;
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(str)) {
+          return "El correo no tiene un formato válido.";
+        }
+        return;
+
+      case "fechaIngreso":
+        if (!str) return "La fecha de ingreso es obligatoria.";
+        // Aquí podrías validar que no sea futura, etc.
+        return;
+
+      default:
+        return;
+    }
+  };
+
+  const runValidation = (field: keyof FormState, value: unknown) => {
+    const errorMsg = validateField(field, value);
+    setErrors((prev) => ({ ...prev, [field]: errorMsg }));
+    return errorMsg;
+  };
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>
   ): void => {
     const { name, value, type, checked } = e.target as HTMLInputElement;
+    const field = name as keyof FormState;
+    const newValue = type === "checkbox" ? checked : value;
+
     setForm((prev) => ({
       ...prev,
-      [name]: type === "checkbox" ? checked : value,
+      [field]: newValue as any,
     }));
+
+    if (touched[field]) {
+      runValidation(field, newValue);
+    }
+  };
+
+  const handleBlur = (field: keyof FormState) => () => {
+    setTouched((prev) => ({ ...prev, [field]: true }));
+    runValidation(field, form[field]);
   };
 
   const setAndShowError = (msg: string) => {
@@ -97,22 +182,56 @@ export const EmpleadoFormModal: React.FC<Props> = ({
     showError(msg);
   };
 
+  const validateForm = (): boolean => {
+    const fieldsToValidate: (keyof FormState)[] = isEditMode
+      ? [
+          "nombres",
+          "apellidoPaterno",
+          "apellidoMaterno",
+          "telefono",
+          "email",
+          "fechaIngreso",
+        ]
+      : [
+          "numEmpleado",
+          "nombres",
+          "apellidoPaterno",
+          "apellidoMaterno",
+          "telefono",
+          "email",
+          "fechaIngreso",
+        ];
+
+    const newErrors: FormErrors = {};
+    fieldsToValidate.forEach((field) => {
+      const errorMsg = validateField(field, form[field]);
+      if (errorMsg) {
+        newErrors[field] = errorMsg;
+      }
+    });
+
+    const newTouched: FormTouched = {};
+    fieldsToValidate.forEach((field) => {
+      newTouched[field] = true;
+    });
+
+    setErrors(newErrors);
+    setTouched((prev) => ({ ...prev, ...newTouched }));
+
+    const hasError = Object.values(newErrors).some((e) => !!e);
+    if (hasError) {
+      setAndShowError("Corrige los campos marcados en rojo.");
+      return false;
+    }
+    return true;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    // Validaciones rápidas
-    if (!isEditMode && !form.numEmpleado.trim()) {
-      return setAndShowError("El número de empleado es obligatorio.");
-    }
-    if (!form.nombres.trim()) {
-      return setAndShowError("El nombre es obligatorio.");
-    }
-    if (!form.apellidoPaterno.trim()) {
-      return setAndShowError("El apellido paterno es obligatorio.");
-    }
-    if (!form.fechaIngreso) {
-      return setAndShowError("La fecha de ingreso es obligatoria.");
+    if (!validateForm()) {
+      return;
     }
 
     try {
@@ -122,9 +241,9 @@ export const EmpleadoFormModal: React.FC<Props> = ({
         const payload: EmpleadoUpdateRequest = {
           nombres: form.nombres.trim(),
           apellidoPaterno: form.apellidoPaterno.trim(),
-          apellidoMaterno: (form.apellidoMaterno ?? "").trim() || undefined,
-          telefono: (form.telefono ?? "").trim() || undefined,
-          email: (form.email ?? "").trim() || undefined,
+          apellidoMaterno: form.apellidoMaterno.trim() || undefined,
+          telefono: form.telefono.trim() || undefined,
+          email: form.email.trim() || undefined,
           fechaIngreso: form.fechaIngreso,
           activo: form.activo,
         };
@@ -134,9 +253,9 @@ export const EmpleadoFormModal: React.FC<Props> = ({
           numEmpleado: form.numEmpleado.trim(),
           nombres: form.nombres.trim(),
           apellidoPaterno: form.apellidoPaterno.trim(),
-          apellidoMaterno: (form.apellidoMaterno ?? "").trim() || undefined,
-          telefono: (form.telefono ?? "").trim() || undefined,
-          email: (form.email ?? "").trim() || undefined,
+          apellidoMaterno: form.apellidoMaterno.trim() || undefined,
+          telefono: form.telefono.trim() || undefined,
+          email: form.email.trim() || undefined,
           fechaIngreso: form.fechaIngreso,
         };
         await crearEmpleado(payload);
@@ -179,8 +298,11 @@ export const EmpleadoFormModal: React.FC<Props> = ({
                 name="numEmpleado"
                 value={form.numEmpleado}
                 onChange={handleChange}
+                onBlur={handleBlur("numEmpleado")}
                 required
                 size="small"
+                error={!!errors.numEmpleado}
+                helperText={errors.numEmpleado}
               />
             ) : (
               <TextField
@@ -196,8 +318,11 @@ export const EmpleadoFormModal: React.FC<Props> = ({
               name="nombres"
               value={form.nombres}
               onChange={handleChange}
+              onBlur={handleBlur("nombres")}
               required
               size="small"
+              error={!!errors.nombres}
+              helperText={errors.nombres}
             />
 
             <TextField
@@ -205,8 +330,11 @@ export const EmpleadoFormModal: React.FC<Props> = ({
               name="apellidoPaterno"
               value={form.apellidoPaterno}
               onChange={handleChange}
+              onBlur={handleBlur("apellidoPaterno")}
               required
               size="small"
+              error={!!errors.apellidoPaterno}
+              helperText={errors.apellidoPaterno}
             />
 
             <TextField
@@ -214,7 +342,10 @@ export const EmpleadoFormModal: React.FC<Props> = ({
               name="apellidoMaterno"
               value={form.apellidoMaterno}
               onChange={handleChange}
+              onBlur={handleBlur("apellidoMaterno")}
               size="small"
+              error={!!errors.apellidoMaterno}
+              helperText={errors.apellidoMaterno}
             />
 
             <TextField
@@ -222,7 +353,11 @@ export const EmpleadoFormModal: React.FC<Props> = ({
               name="telefono"
               value={form.telefono}
               onChange={handleChange}
+              onBlur={handleBlur("telefono")}
               size="small"
+              inputProps={{ inputMode: "tel", maxLength: 10 }}
+              error={!!errors.telefono}
+              helperText={errors.telefono}
             />
 
             <TextField
@@ -231,7 +366,10 @@ export const EmpleadoFormModal: React.FC<Props> = ({
               type="email"
               value={form.email}
               onChange={handleChange}
+              onBlur={handleBlur("email")}
               size="small"
+              error={!!errors.email}
+              helperText={errors.email}
             />
 
             <TextField
@@ -240,9 +378,12 @@ export const EmpleadoFormModal: React.FC<Props> = ({
               type="date"
               value={form.fechaIngreso}
               onChange={handleChange}
+              onBlur={handleBlur("fechaIngreso")}
               size="small"
               InputLabelProps={{ shrink: true }}
               required
+              error={!!errors.fechaIngreso}
+              helperText={errors.fechaIngreso}
             />
 
             <FormControlLabel
@@ -276,3 +417,5 @@ export const EmpleadoFormModal: React.FC<Props> = ({
     </Dialog>
   );
 };
+
+export default EmpleadoFormModal;

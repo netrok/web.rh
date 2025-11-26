@@ -32,11 +32,17 @@ import {
   Select,
   MenuItem,
 } from "@mui/material";
+import type { SelectChangeEvent } from "@mui/material/Select";
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
 } from "@mui/icons-material";
+
+// Libs para exportar
+import * as XLSX from "xlsx";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 function formatearNombre(e: Empleado) {
   return `${e.nombres} ${e.apellidoPaterno} ${e.apellidoMaterno ?? ""}`.trim();
@@ -47,7 +53,9 @@ type ActivoFilter = "todos" | "activos" | "inactivos";
 export function EmpleadosPage() {
   const { showSuccess, showError } = useNotification();
 
-  const [empleadosPage, setEmpleadosPage] = useState<EmpleadosPage | null>(null);
+  const [empleadosPage, setEmpleadosPage] = useState<EmpleadosPage | null>(
+    null
+  );
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -72,7 +80,12 @@ export function EmpleadosPage() {
     try {
       setLoading(true);
       setError(null);
-      const data = await fetchEmpleados(page, size, currentSearch, currentActivo);
+      const data = await fetchEmpleados(
+        page,
+        size,
+        currentSearch,
+        currentActivo
+      );
       setEmpleadosPage(data);
     } catch (err: any) {
       console.error("ERROR axios:", err);
@@ -143,14 +156,166 @@ export function EmpleadosPage() {
     cargarEmpleados(page - 1, size, search, getActivoValue());
   };
 
-  const handleActivoChange = (e: any) => {
-    const value = e.target.value as ActivoFilter;
+  const handleActivoChange = (event: SelectChangeEvent<ActivoFilter>) => {
+    const value = event.target.value as ActivoFilter;
     setActivoFilter(value);
 
     const activoValue =
       value === "activos" ? true : value === "inactivos" ? false : undefined;
 
     cargarEmpleados(0, empleadosPage?.size ?? 20, search, activoValue);
+  };
+
+  // ---------- EXPORTACIONES ----------
+
+  const buildPlainRows = () =>
+    empleados.map((e) => ({
+      ID: e.id,
+      NumEmpleado: e.numEmpleado,
+      Nombres: e.nombres,
+      ApellidoPaterno: e.apellidoPaterno,
+      ApellidoMaterno: e.apellidoMaterno ?? "",
+      Telefono: e.telefono ?? "",
+      Email: e.email ?? "",
+      FechaIngreso: e.fechaIngreso,
+      Activo: e.activo ? "SI" : "NO",
+    }));
+
+  const handleExportCsv = () => {
+    if (!empleados || empleados.length === 0) {
+      showError("No hay empleados para exportar.");
+      return;
+    }
+
+    const rows = buildPlainRows();
+    const headers = Object.keys(rows[0]) as (keyof (typeof rows)[number])[];
+
+    const csvContent =
+      [
+        headers.join(";"),
+        ...rows.map((row) =>
+          headers
+            .map((h) => {
+              const value = row[h] ?? "";
+              const escaped = String(value).replace(/"/g, '""');
+              return `"${escaped}"`;
+            })
+            .join(";")
+        ),
+      ].join("\r\n") + "\r\n";
+
+    const blob = new Blob([csvContent], {
+      type: "text/csv;charset=utf-8;",
+    });
+    const url = URL.createObjectURL(blob);
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "empleados.csv";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportXlsx = () => {
+    if (!empleados || empleados.length === 0) {
+      showError("No hay empleados para exportar.");
+      return;
+    }
+
+    const rows = buildPlainRows();
+    const worksheet = XLSX.utils.json_to_sheet(rows);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, "Empleados");
+
+    const wbout = XLSX.write(workbook, {
+      bookType: "xlsx",
+      type: "array",
+    });
+
+    const blob = new Blob([wbout], {
+      type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    });
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "empleados.xlsx";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
+  const handleExportPdf = () => {
+    if (!empleados || empleados.length === 0) {
+      showError("No hay empleados para exportar.");
+      return;
+    }
+
+    const rows = buildPlainRows();
+    const headers = [
+      "ID",
+      "NumEmpleado",
+      "Nombres",
+      "ApellidoPaterno",
+      "ApellidoMaterno",
+      "Telefono",
+      "Email",
+      "FechaIngreso",
+      "Activo",
+    ];
+
+    const body = rows.map((r) => [
+      r.ID,
+      r.NumEmpleado,
+      r.Nombres,
+      r.ApellidoPaterno,
+      r.ApellidoMaterno,
+      r.Telefono,
+      r.Email,
+      r.FechaIngreso,
+      r.Activo,
+    ]);
+
+    const doc = new jsPDF({
+      orientation: "landscape",
+      unit: "pt",
+      format: "a4",
+    });
+
+    doc.setFontSize(14);
+    doc.text("Listado de empleados", 40, 40);
+
+    autoTable(doc, {
+      startY: 60,
+      head: [headers],
+      body,
+      styles: { fontSize: 8 },
+      headStyles: { fillColor: [33, 150, 243] },
+    });
+
+    doc.save("empleados.pdf");
+  };
+
+  // ---------- FIN EXPORTACIONES ----------
+
+  const handleModalSaved = () => {
+    const isEdit = !!empleadoEdit;
+    cargarEmpleados(
+      empleadosPage?.number ?? 0,
+      empleadosPage?.size ?? 20,
+      search,
+      getActivoValue()
+    );
+    setEmpleadoEdit(null);
+
+    showSuccess(
+      isEdit
+        ? "Empleado actualizado correctamente."
+        : "Empleado creado correctamente."
+    );
   };
 
   return (
@@ -201,6 +366,16 @@ export function EmpleadosPage() {
 
             <Button variant="outlined" onClick={handleSearchClick}>
               Buscar
+            </Button>
+
+            <Button variant="outlined" onClick={handleExportCsv}>
+              CSV
+            </Button>
+            <Button variant="outlined" onClick={handleExportXlsx}>
+              XLSX
+            </Button>
+            <Button variant="outlined" onClick={handleExportPdf}>
+              PDF
             </Button>
 
             <Button
@@ -291,22 +466,7 @@ export function EmpleadosPage() {
       <EmpleadoFormModal
         open={showModal}
         onClose={() => setShowModal(false)}
-        onSaved={() => {
-          const isEdit = !!empleadoEdit;
-          cargarEmpleados(
-            empleadosPage?.number ?? 0,
-            empleadosPage?.size ?? 20,
-            search,
-            getActivoValue()
-          );
-          setShowModal(false);
-          setEmpleadoEdit(null);
-          showSuccess(
-            isEdit
-              ? "Empleado actualizado correctamente."
-              : "Empleado creado correctamente."
-          );
-        }}
+        onSaved={handleModalSaved}
         empleado={empleadoEdit}
       />
     </Container>
