@@ -30,7 +30,12 @@ import {
   FormControl,
   InputLabel,
   Select,
+  Menu,
   MenuItem,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from "@mui/material";
 import type { SelectChangeEvent } from "@mui/material/Select";
 import {
@@ -64,6 +69,26 @@ export function EmpleadosPage() {
 
   const [search, setSearch] = useState("");
   const [activoFilter, setActivoFilter] = useState<ActivoFilter>("todos");
+
+  // Menú de exportación
+  const [exportAnchorEl, setExportAnchorEl] = useState<null | HTMLElement>(
+    null
+  );
+  const exportMenuOpen = Boolean(exportAnchorEl);
+
+  // Diálogo de confirmación de borrado
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [empleadoToDelete, setEmpleadoToDelete] = useState<Empleado | null>(
+    null
+  );
+
+  const handleOpenExportMenu = (event: React.MouseEvent<HTMLButtonElement>) => {
+    setExportAnchorEl(event.currentTarget);
+  };
+
+  const handleCloseExportMenu = () => {
+    setExportAnchorEl(null);
+  };
 
   const getActivoValue = (): boolean | undefined => {
     if (activoFilter === "activos") return true;
@@ -117,17 +142,26 @@ export function EmpleadosPage() {
     setShowModal(true);
   };
 
-  const handleEliminar = async (empleado: Empleado) => {
-    const nombre = formatearNombre(empleado);
+  // --- Confirmación de eliminación ---
 
-    const confirmado = window.confirm(
-      `¿Seguro que quieres eliminar al empleado:\n\n${empleado.numEmpleado} - ${nombre}?`
-    );
+  const solicitarEliminar = (empleado: Empleado) => {
+    setEmpleadoToDelete(empleado);
+    setConfirmOpen(true);
+  };
 
-    if (!confirmado) return;
+  const handleCloseConfirm = () => {
+    setConfirmOpen(false);
+    setEmpleadoToDelete(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!empleadoToDelete) {
+      handleCloseConfirm();
+      return;
+    }
 
     try {
-      await deleteEmpleado(empleado.id);
+      await deleteEmpleado(empleadoToDelete.id);
       await cargarEmpleados(
         empleadosPage?.number ?? 0,
         empleadosPage?.size ?? 20,
@@ -138,8 +172,12 @@ export function EmpleadosPage() {
     } catch (err: any) {
       console.error("Error al eliminar empleado:", err);
       showError("No se pudo eliminar el empleado.");
+    } finally {
+      handleCloseConfirm();
     }
   };
+
+  // --- Fin confirmación eliminación ---
 
   const handleSearchClick = () => {
     cargarEmpleados(0, empleadosPage?.size ?? 20, search, getActivoValue());
@@ -182,6 +220,8 @@ export function EmpleadosPage() {
     }));
 
   const handleExportCsv = () => {
+    handleCloseExportMenu();
+
     if (!empleados || empleados.length === 0) {
       showError("No hay empleados para exportar.");
       return;
@@ -219,6 +259,8 @@ export function EmpleadosPage() {
   };
 
   const handleExportXlsx = () => {
+    handleCloseExportMenu();
+
     if (!empleados || empleados.length === 0) {
       showError("No hay empleados para exportar.");
       return;
@@ -249,12 +291,15 @@ export function EmpleadosPage() {
   };
 
   const handleExportPdf = () => {
+    handleCloseExportMenu();
+
     if (!empleados || empleados.length === 0) {
       showError("No hay empleados para exportar.");
       return;
     }
 
     const rows = buildPlainRows();
+
     const headers = [
       "ID",
       "NumEmpleado",
@@ -279,6 +324,25 @@ export function EmpleadosPage() {
       r.Activo,
     ]);
 
+    // Filtros para mostrar en el PDF
+    const filtros: string[] = [];
+    if (search.trim()) {
+      filtros.push(`Búsqueda: "${search.trim()}"`);
+    }
+    if (activoFilter !== "todos") {
+      filtros.push(
+        `Estado: ${activoFilter === "activos" ? "Activos" : "Inactivos"}`
+      );
+    }
+    const filtrosTexto =
+      filtros.length > 0 ? filtros.join(" | ") : "Sin filtros";
+
+    const ahora = new Date();
+    const fechaTexto = ahora.toLocaleString("es-MX", {
+      dateStyle: "short",
+      timeStyle: "short",
+    });
+
     const doc = new jsPDF({
       orientation: "landscape",
       unit: "pt",
@@ -288,8 +352,12 @@ export function EmpleadosPage() {
     doc.setFontSize(14);
     doc.text("Listado de empleados", 40, 40);
 
+    doc.setFontSize(10);
+    doc.text(`Filtros: ${filtrosTexto}`, 40, 58);
+    doc.text(`Generado: ${fechaTexto}`, 40, 72);
+
     autoTable(doc, {
-      startY: 60,
+      startY: 90,
       head: [headers],
       body,
       styles: { fontSize: 8 },
@@ -317,6 +385,10 @@ export function EmpleadosPage() {
         : "Empleado creado correctamente."
     );
   };
+
+  const nombreEmpleadoAEliminar = empleadoToDelete
+    ? `${empleadoToDelete.numEmpleado} - ${formatearNombre(empleadoToDelete)}`
+    : "";
 
   return (
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
@@ -368,15 +440,18 @@ export function EmpleadosPage() {
               Buscar
             </Button>
 
-            <Button variant="outlined" onClick={handleExportCsv}>
-              CSV
+            <Button variant="outlined" onClick={handleOpenExportMenu}>
+              Exportar
             </Button>
-            <Button variant="outlined" onClick={handleExportXlsx}>
-              XLSX
-            </Button>
-            <Button variant="outlined" onClick={handleExportPdf}>
-              PDF
-            </Button>
+            <Menu
+              anchorEl={exportAnchorEl}
+              open={exportMenuOpen}
+              onClose={handleCloseExportMenu}
+            >
+              <MenuItem onClick={handleExportCsv}>Exportar CSV</MenuItem>
+              <MenuItem onClick={handleExportXlsx}>Exportar XLSX</MenuItem>
+              <MenuItem onClick={handleExportPdf}>Exportar PDF</MenuItem>
+            </Menu>
 
             <Button
               variant="contained"
@@ -438,7 +513,7 @@ export function EmpleadosPage() {
                       <IconButton
                         size="small"
                         color="error"
-                        onClick={() => handleEliminar(e)}
+                        onClick={() => solicitarEliminar(e)}
                       >
                         <DeleteIcon fontSize="small" />
                       </IconButton>
@@ -469,6 +544,25 @@ export function EmpleadosPage() {
         onSaved={handleModalSaved}
         empleado={empleadoEdit}
       />
+
+      {/* Diálogo de confirmación */}
+      <Dialog open={confirmOpen} onClose={handleCloseConfirm} maxWidth="xs" fullWidth>
+        <DialogTitle>Confirmar eliminación</DialogTitle>
+        <DialogContent dividers>
+          <Typography>
+            ¿Seguro que quieres eliminar al empleado:
+          </Typography>
+          <Typography fontWeight="bold" sx={{ mt: 1 }}>
+            {nombreEmpleadoAEliminar}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseConfirm}>Cancelar</Button>
+          <Button onClick={handleConfirmDelete} color="error" variant="contained">
+            Eliminar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Container>
   );
 }
