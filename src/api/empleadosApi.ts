@@ -1,7 +1,5 @@
 // src/api/empleadosApi.ts
-import axios from "axios";
-
-const API_BASE_URL = "http://localhost:8080";
+import apiClient from "./apiClient";
 
 export interface Empleado {
   id: number;
@@ -49,7 +47,7 @@ export async function fetchEmpleados(
   search?: string,
   activo?: boolean
 ): Promise<EmpleadosPage> {
-  const params: any = { page, size };
+  const params: Record<string, unknown> = { page, size };
 
   if (search && search.trim() !== "") {
     params.q = search.trim();
@@ -59,7 +57,7 @@ export async function fetchEmpleados(
     params.activo = activo;
   }
 
-  const res = await axios.get<EmpleadosPage>(`${API_BASE_URL}/api/empleados`, {
+  const res = await apiClient.get<EmpleadosPage>("/api/empleados", {
     params,
   });
   return res.data;
@@ -68,10 +66,7 @@ export async function fetchEmpleados(
 export async function crearEmpleado(
   payload: EmpleadoCreateRequest
 ): Promise<Empleado> {
-  const res = await axios.post<Empleado>(
-    `${API_BASE_URL}/api/empleados`,
-    payload
-  );
+  const res = await apiClient.post<Empleado>("/api/empleados", payload);
   return res.data;
 }
 
@@ -79,13 +74,15 @@ export async function updateEmpleado(
   id: number,
   payload: EmpleadoUpdateRequest
 ): Promise<Empleado> {
-  const res = await axios.put<Empleado>(
-    `${API_BASE_URL}/api/empleados/${id}`,
-    payload
-  );
+  const res = await apiClient.put<Empleado>(`/api/empleados/${id}`, payload);
   return res.data;
 }
 
 export async function deleteEmpleado(id: number): Promise<void> {
-  await axios.delete(`${API_BASE_URL}/api/empleados/${id}`);
+  await apiClient.delete(`/api/empleados/${id}`);
 }
+
+// Helper opcional si en algún lado usabas getEmpleados(page, size)
+export const getEmpleados = async (page = 0, size = 10): Promise<EmpleadosPage> => {
+  return fetchEmpleados(page, size);
+};

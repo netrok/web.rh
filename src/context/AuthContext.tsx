@@ -1,103 +1,115 @@
 // src/context/AuthContext.tsx
-import React, { createContext, useEffect, useState } from "react";
-import type { ReactNode } from "react";
-import { jwtDecode } from "jwt-decode";
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  type ReactNode,
+} from "react";
+import apiClient from "../api/apiClient";
 
-type AuthUser = {
+type LoginResponse = {
+  accessToken: string;
+  tokenType: string;
+  expiresIn: number;
   username: string;
   roles: string[];
 };
 
-type AuthContextType = {
-  user: AuthUser | null;
+type AuthState = {
+  isAuthenticated: boolean;
+  username: string | null;
+  roles: string[];
   accessToken: string | null;
-  login: (
-    accessToken: string,
-    refreshToken: string,
-    username: string,
-    roles: string[]
-  ) => void;
+};
+
+type AuthContextValue = AuthState & {
+  login: (username: string, password: string) => Promise<void>;
   logout: () => void;
   hasRole: (...roles: string[]) => boolean;
 };
 
-export const AuthContext = createContext<AuthContextType>({} as AuthContextType);
+const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
-type Props = {
+type AuthProviderProps = {
   children: ReactNode;
 };
 
-type JwtPayload = {
-  sub?: string;
-  roles?: string[];
-  [key: string]: unknown;
-};
+export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+  const [auth, setAuth] = useState<AuthState>({
+    isAuthenticated: false,
+    username: null,
+    roles: [],
+    accessToken: null,
+  });
 
-export const AuthProvider: React.FC<Props> = ({ children }) => {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [accessToken, setAccessToken] = useState<string | null>(null);
-
+  // Cargar token/usuario/roles desde localStorage al iniciar
   useEffect(() => {
-    const storedAccessToken = localStorage.getItem("accessToken");
+    const storedToken = localStorage.getItem("accessToken");
     const storedUsername = localStorage.getItem("username");
     const storedRoles = localStorage.getItem("roles");
 
-    if (storedAccessToken && storedUsername && storedRoles) {
-      setAccessToken(storedAccessToken);
-      setUser({
+    if (storedToken && storedUsername && storedRoles) {
+      setAuth({
+        isAuthenticated: true,
         username: storedUsername,
         roles: JSON.parse(storedRoles),
+        accessToken: storedToken,
       });
     }
   }, []);
 
-  const login = (
-    newAccessToken: string,
-    refreshToken: string,
-    username: string,
-    roles: string[]
-  ) => {
+  const login = async (username: string, password: string) => {
+    const response = await apiClient.post<LoginResponse>("/api/auth/login", {
+      username,
+      password,
+    });
+
+    const data = response.data;
+
     // Guardar en localStorage
-    localStorage.setItem("accessToken", newAccessToken);
-    localStorage.setItem("refreshToken", refreshToken);
-    localStorage.setItem("username", username);
-    localStorage.setItem("roles", JSON.stringify(roles));
+    localStorage.setItem("accessToken", data.accessToken);
+    localStorage.setItem("username", data.username);
+    localStorage.setItem("roles", JSON.stringify(data.roles));
 
-    setAccessToken(newAccessToken);
-    setUser({ username, roles });
-
-    // Opcional: sobreescribir con lo que venga en el token
-    try {
-      const decoded = jwtDecode<JwtPayload>(newAccessToken);
-      const decodedUsername = (decoded.sub as string) || username;
-      const decodedRoles = Array.isArray(decoded.roles) ? decoded.roles : roles;
-
-      setUser({
-        username: decodedUsername,
-        roles: decodedRoles,
-      });
-    } catch (error) {
-      console.warn("No se pudo decodificar el token JWT", error);
-    }
+    setAuth({
+      isAuthenticated: true,
+      username: data.username,
+      roles: data.roles,
+      accessToken: data.accessToken,
+    });
   };
 
   const logout = () => {
     localStorage.removeItem("accessToken");
-    localStorage.removeItem("refreshToken");
     localStorage.removeItem("username");
     localStorage.removeItem("roles");
-    setAccessToken(null);
-    setUser(null);
+
+    setAuth({
+      isAuthenticated: false,
+      username: null,
+      roles: [],
+      accessToken: null,
+    });
   };
 
   const hasRole = (...requiredRoles: string[]) => {
-    if (!user) return false;
-    return user.roles.some((role) => requiredRoles.includes(role));
+    if (!auth.isAuthenticated) return false;
+    if (!auth.roles.length) return false;
+    return auth.roles.some((role) => requiredRoles.includes(role));
   };
 
   return (
-    <AuthContext.Provider value={{ user, accessToken, login, logout, hasRole }}>
+    <AuthContext.Provider value={{ ...auth, login, logout, hasRole }}>
       {children}
     </AuthContext.Provider>
   );
+};
+
+export const useAuth = (): AuthContextValue => {
+  const ctx = useContext(AuthContext);
+  if (!ctx) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return ctx;
 };

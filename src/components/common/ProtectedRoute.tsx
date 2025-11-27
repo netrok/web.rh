@@ -1,23 +1,27 @@
 // src/components/common/ProtectedRoute.tsx
 import React from "react";
-import { Navigate } from "react-router-dom";
-import { useAuth } from "../../hooks/useAuth";
+import { Navigate, useLocation } from "react-router-dom";
+import { useAuth } from "../../context/AuthContext";
 
 type ProtectedRouteProps = {
-  children: React.ReactElement;
+  children: React.ReactElement; // 👈 antes: JSX.Element
   roles?: string[]; // opcional: restringir por rol
 };
 
 export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children, roles }) => {
-  const { user, hasRole } = useAuth();
+  const { isAuthenticated, hasRole } = useAuth();
+  const location = useLocation();
 
-  if (!user) {
-    return <Navigate to="/login" replace />;
+  // 1) No autenticado → a login
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace state={{ from: location }} />;
   }
 
+  // 2) Autenticado pero sin roles requeridos → /unauthorized (si se especifican)
   if (roles && roles.length > 0 && !hasRole(...roles)) {
     return <Navigate to="/unauthorized" replace />;
   }
 
+  // 3) Pasa todos los filtros → renderiza el hijo
   return children;
 };

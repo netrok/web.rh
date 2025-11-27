@@ -1,10 +1,11 @@
 // src/routes/AppRouter.tsx
 import React from "react";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { MainLayout } from "../components/layout/MainLayout";
 import LoginPage from "../pages/auth/LoginPage";
 import DashboardPage from "../pages/dashboard/DashboardPage";
 import { ProtectedRoute } from "../components/common/ProtectedRoute";
+import { EmpleadosPage } from "../pages/EmpleadosPage"; // 👈 CAMBIO AQUÍ
 
 const AppRouter: React.FC = () => {
   return (
@@ -14,7 +15,7 @@ const AppRouter: React.FC = () => {
         <Route path="/login" element={<LoginPage />} />
         <Route path="/unauthorized" element={<div>No autorizado</div>} />
 
-        {/* Rutas protegidas */}
+        {/* Rutas protegidas con layout principal */}
         <Route
           path="/"
           element={
@@ -23,12 +24,15 @@ const AppRouter: React.FC = () => {
             </ProtectedRoute>
           }
         >
+          {/* ruta raíz -> dashboard */}
           <Route index element={<DashboardPage />} />
-          {/* Aquí luego colgamos /empleados, /permisos, etc */}
+
+          {/* módulo de empleados */}
+          <Route path="empleados" element={<EmpleadosPage />} />
         </Route>
 
-        {/* Fallback */}
-        <Route path="*" element={<div>404 - Página no encontrada</div>} />
+        {/* Fallback: cualquier otra ruta -> redirección al dashboard */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   );

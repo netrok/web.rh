@@ -1,13 +1,13 @@
 // src/main.tsx
 import React from "react";
 import ReactDOM from "react-dom/client";
-import App from "./App";
+import { ThemeProvider, CssBaseline, createTheme } from "@mui/material";
 import { AuthProvider } from "./context/AuthContext";
-import { CssBaseline, ThemeProvider, createTheme } from "@mui/material";
+import AppRouter from "./routes/AppRouter"; // 👈 AQUÍ EL CAMBIO
 
 const theme = createTheme({
   palette: {
-    mode: "light", // luego lo hacemos dark si quieres
+    mode: "light", // luego si quieres lo cambiamos a dark
   },
 });
 
@@ -16,7 +16,7 @@ ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <App />
+        <AppRouter />
       </AuthProvider>
     </ThemeProvider>
   </React.StrictMode>
