@@ -21,8 +21,8 @@ import type { Empleado } from "../api/empleadosApi";
 
 interface EmpleadosTableProps {
   empleados: Empleado[];
-  page: number;           // 0-based
-  totalPages: number;     // backend totalPages
+  page: number;                 // 0-based
+  totalPages: number;           // backend totalPages
   onPageChange: (page: number) => void; // 0-based
   onEdit: (empleado: Empleado) => void;
   onDelete: (empleado: Empleado) => void;
@@ -32,7 +32,7 @@ function formatearNombre(e: Empleado) {
   return `${e.nombres} ${e.apellidoPaterno} ${e.apellidoMaterno ?? ""}`.trim();
 }
 
-export const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
+const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
   empleados,
   page,
   totalPages,
@@ -44,6 +44,8 @@ export const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
     // Pagination es 1-based; convertimos a 0-based para el padre
     onPageChange(newPage - 1);
   };
+
+  const columnsCount = 8; // número total de columnas visibles
 
   return (
     <>
@@ -61,62 +63,81 @@ export const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
           </TableRow>
         </TableHead>
         <TableBody>
-          {empleados.map((e) => (
-            <TableRow
-              key={e.id}
-              hover
-              sx={{
-                opacity: e.activo ? 1 : 0.7,
-                backgroundColor: e.activo ? "inherit" : "action.hover",
-              }}
-            >
-              <TableCell>{e.id}</TableCell>
-              <TableCell>
-                <Typography variant="body2" fontWeight="bold">
-                  {e.numEmpleado}
+          {empleados.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={columnsCount}>
+                <Typography
+                  variant="body2"
+                  color="text.secondary"
+                  align="center"
+                >
+                  No hay empleados para mostrar.
                 </Typography>
               </TableCell>
-              <TableCell>{formatearNombre(e)}</TableCell>
-              <TableCell>
-                {e.telefono ? (
-                  <Tooltip title={e.telefono}>
-                    <span>{e.telefono}</span>
-                  </Tooltip>
-                ) : (
-                  "-"
-                )}
-              </TableCell>
-              <TableCell>
-                {e.email ? (
-                  <Tooltip title={e.email}>
-                    <span>{e.email}</span>
-                  </Tooltip>
-                ) : (
-                  "-"
-                )}
-              </TableCell>
-              <TableCell>{e.fechaIngreso}</TableCell>
-              <TableCell>
-                <Chip
-                  label={e.activo ? "Activo" : "Inactivo"}
-                  color={e.activo ? "success" : "default"}
-                  size="small"
-                />
-              </TableCell>
-              <TableCell align="right">
-                <IconButton size="small" onClick={() => onEdit(e)}>
-                  <EditIcon fontSize="small" />
-                </IconButton>
-                <IconButton
-                  size="small"
-                  color="error"
-                  onClick={() => onDelete(e)}
-                >
-                  <DeleteIcon fontSize="small" />
-                </IconButton>
-              </TableCell>
             </TableRow>
-          ))}
+          ) : (
+            empleados.map((e) => (
+              <TableRow
+                key={e.id}
+                hover
+                sx={{
+                  opacity: e.activo ? 1 : 0.7,
+                  backgroundColor: e.activo ? "inherit" : "action.hover",
+                }}
+              >
+                <TableCell>{e.id}</TableCell>
+                <TableCell>
+                  <Typography variant="body2" fontWeight="bold">
+                    {e.numEmpleado}
+                  </Typography>
+                </TableCell>
+                <TableCell>{formatearNombre(e)}</TableCell>
+                <TableCell>
+                  {e.telefono ? (
+                    <Tooltip title={e.telefono}>
+                      <span>{e.telefono}</span>
+                    </Tooltip>
+                  ) : (
+                    "-"
+                  )}
+                </TableCell>
+                <TableCell>
+                  {e.email ? (
+                    <Tooltip title={e.email}>
+                      <span>{e.email}</span>
+                    </Tooltip>
+                  ) : (
+                    "-"
+                  )}
+                </TableCell>
+                <TableCell>{e.fechaIngreso}</TableCell>
+                <TableCell>
+                  <Chip
+                    label={e.activo ? "Activo" : "Inactivo"}
+                    color={e.activo ? "success" : "default"}
+                    size="small"
+                  />
+                </TableCell>
+                <TableCell align="right">
+                  <IconButton
+                    size="small"
+                    onClick={() => onEdit(e)}
+                    aria-label="Editar empleado"
+                  >
+                    <EditIcon fontSize="small" />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    color="error"
+                    onClick={() => onDelete(e)}
+                    aria-label="Eliminar empleado"
+                  >
+                    <DeleteIcon fontSize="small" />
+                  </IconButton>
+                </TableCell>
+              </TableRow>
+            ))
+          )}
         </TableBody>
       </Table>
 
@@ -134,3 +155,5 @@ export const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
     </>
   );
 };
+
+export default EmpleadosTable;

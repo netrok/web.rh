@@ -21,6 +21,14 @@ export interface EmpleadosPage {
   size: number;
 }
 
+// Parámetros cómodos para el front
+export type GetEmpleadosOptions = {
+  page?: number;        // 0-based
+  size?: number;
+  search?: string;
+  soloActivos?: boolean; // true = solo activos, false/undefined = todos
+};
+
 export type EmpleadoCreateRequest = {
   numEmpleado: string;
   nombres: string;
@@ -41,6 +49,7 @@ export type EmpleadoUpdateRequest = {
   activo: boolean;
 };
 
+// Función base que pega al backend con query params directos
 export async function fetchEmpleados(
   page = 0,
   size = 20,
@@ -63,12 +72,34 @@ export async function fetchEmpleados(
   return res.data;
 }
 
-export async function crearEmpleado(
+// Versión friendly para el front (la que usas en EmpleadosPage)
+export async function getEmpleados(
+  options: GetEmpleadosOptions = {}
+): Promise<EmpleadosPage> {
+  const {
+    page = 0,
+    size = 20,
+    search,
+    soloActivos,
+  } = options;
+
+  // si soloActivos = true => activo=true
+  // si soloActivos = false/undefined => no mandamos filtro y vienen todos
+  const activo = soloActivos ? true : undefined;
+
+  return fetchEmpleados(page, size, search, activo);
+}
+
+// Crear empleado (nombre en inglés como usas en EmpleadosPage)
+export async function createEmpleado(
   payload: EmpleadoCreateRequest
 ): Promise<Empleado> {
   const res = await apiClient.post<Empleado>("/api/empleados", payload);
   return res.data;
 }
+
+// Alias en español por si en algún lado ya usabas crearEmpleado
+export { createEmpleado as crearEmpleado };
 
 export async function updateEmpleado(
   id: number,
@@ -81,8 +112,3 @@ export async function updateEmpleado(
 export async function deleteEmpleado(id: number): Promise<void> {
   await apiClient.delete(`/api/empleados/${id}`);
 }
-
-// Helper opcional si en algún lado usabas getEmpleados(page, size)
-export const getEmpleados = async (page = 0, size = 10): Promise<EmpleadosPage> => {
-  return fetchEmpleados(page, size);
-};

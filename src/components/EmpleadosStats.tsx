@@ -1,8 +1,8 @@
 // src/components/EmpleadosStats.tsx
 import React from "react";
-import { Stack, Chip } from "@mui/material";
+import { Stack, Card, CardContent, Typography } from "@mui/material";
 
-interface EmpleadosStatsProps {
+export interface EmpleadosStatsProps {
   total: number;
   activos: number;
   inactivos: number;
@@ -13,17 +13,44 @@ export const EmpleadosStats: React.FC<EmpleadosStatsProps> = ({
   activos,
   inactivos,
 }) => {
-  if (total === 0) return null;
-
   return (
-    <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: "wrap" }}>
-      <Chip label={`En página: ${total}`} variant="outlined" color="info" />
-      <Chip label={`Activos: ${activos}`} variant="outlined" color="success" />
-      <Chip
-        label={`Inactivos: ${inactivos}`}
-        variant="outlined"
-        color={inactivos > 0 ? "warning" : "default"}
-      />
+    <Stack
+      direction={{ xs: "column", sm: "row" }}
+      spacing={2}
+      sx={{ alignItems: "stretch" }}
+    >
+      <Card elevation={2} sx={{ flex: 1, minWidth: 0 }}>
+        <CardContent>
+          <Typography variant="subtitle2" color="text.secondary">
+            Total empleados
+          </Typography>
+          <Typography variant="h5" fontWeight={600}>
+            {total}
+          </Typography>
+        </CardContent>
+      </Card>
+
+      <Card elevation={2} sx={{ flex: 1, minWidth: 0 }}>
+        <CardContent>
+          <Typography variant="subtitle2" color="text.secondary">
+            Activos
+          </Typography>
+          <Typography variant="h5" fontWeight={600}>
+            {activos}
+          </Typography>
+        </CardContent>
+      </Card>
+
+      <Card elevation={2} sx={{ flex: 1, minWidth: 0 }}>
+        <CardContent>
+          <Typography variant="subtitle2" color="text.secondary">
+            Inactivos
+          </Typography>
+          <Typography variant="h5" fontWeight={600}>
+            {inactivos}
+          </Typography>
+        </CardContent>
+      </Card>
     </Stack>
   );
 };

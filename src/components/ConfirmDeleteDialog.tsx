@@ -4,45 +4,41 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogContentText,
   DialogActions,
-  Typography,
   Button,
 } from "@mui/material";
-import type { Empleado } from "../api/empleadosApi";
 
-interface ConfirmDeleteDialogProps {
+export interface ConfirmDeleteDialogProps {
   open: boolean;
-  empleado: Empleado | null;
+  title: string;
+  description?: string;
   onCancel: () => void;
-  onConfirm: () => void;
-}
-
-function formatearNombre(e: Empleado) {
-  return `${e.nombres} ${e.apellidoPaterno} ${e.apellidoMaterno ?? ""}`.trim();
+  onConfirm: () => void | Promise<void>;
 }
 
 export const ConfirmDeleteDialog: React.FC<ConfirmDeleteDialogProps> = ({
   open,
-  empleado,
+  title,
+  description,
   onCancel,
   onConfirm,
 }) => {
-  const nombreEmpleado = empleado
-    ? `${empleado.numEmpleado} - ${formatearNombre(empleado)}`
-    : "";
+  const handleConfirm = async () => {
+    await onConfirm();
+  };
 
   return (
     <Dialog open={open} onClose={onCancel} maxWidth="xs" fullWidth>
-      <DialogTitle>Confirmar eliminación</DialogTitle>
-      <DialogContent dividers>
-        <Typography>¿Seguro que quieres eliminar al empleado:</Typography>
-        <Typography fontWeight="bold" sx={{ mt: 1 }}>
-          {nombreEmpleado}
-        </Typography>
-      </DialogContent>
+      <DialogTitle>{title}</DialogTitle>
+      {description && (
+        <DialogContent>
+          <DialogContentText>{description}</DialogContentText>
+        </DialogContent>
+      )}
       <DialogActions>
         <Button onClick={onCancel}>Cancelar</Button>
-        <Button onClick={onConfirm} color="error" variant="contained">
+        <Button onClick={handleConfirm} color="error" variant="contained">
           Eliminar
         </Button>
       </DialogActions>

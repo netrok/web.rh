@@ -1,99 +1,189 @@
 // src/pages/EmpleadosPage.tsx
 import React, { useEffect, useState } from "react";
+import { Box, Paper, Stack, Typography } from "@mui/material";
 import {
-  Box,
-  Paper,
-  Typography,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableRow,
-  TableContainer,
-  CircularProgress,
-  Alert,
-} from "@mui/material";
-import { fetchEmpleados, type Empleado, type EmpleadosPage } from "../api/empleadosApi";
+  getEmpleados,
+  deleteEmpleado,
+  type Empleado,
+} from "../api/empleadosApi";
+import { EmpleadosToolbar } from "../components/EmpleadosToolbar";
+import { EmpleadosStats } from "../components/EmpleadosStats";
+import EmpleadosTable from "../components/EmpleadosTable";
+import EmpleadoFormModal from "../components/EmpleadoFormModal";
+import { ConfirmDeleteDialog } from "../components/ConfirmDeleteDialog";
 
-export const EmpleadosPage: React.FC = () => {
-  const [data, setData] = useState<EmpleadosPage | null>(null);
+const EmpleadosPage: React.FC = () => {
+  const [empleados, setEmpleados] = useState<Empleado[]>([]);
+  const [page, setPage] = useState(0); // 0-based
+  const [totalPages, setTotalPages] = useState(1);
+
+  const [search, setSearch] = useState("");
+  const [soloActivos, setSoloActivos] = useState(true);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [openForm, setOpenForm] = useState(false);
+  const [empleadoEdit, setEmpleadoEdit] = useState<Empleado | null>(null);
+
+  const [openConfirmDelete, setOpenConfirmDelete] = useState(false);
+  const [empleadoDelete, setEmpleadoDelete] = useState<Empleado | null>(null);
+
+  // --- Carga de empleados (paginado) ---
+  const cargarEmpleados = async (pageToLoad: number = page) => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const data = await getEmpleados({
+        page: pageToLoad,
+        search,
+        soloActivos,
+      });
+
+      setEmpleados(data.content);
+      setTotalPages(data.totalPages);
+      setPage(data.number);
+    } catch (err) {
+      console.error(err);
+      setError("Error al cargar empleados");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Primera carga y cuando cambian filtros/buscador
   useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+    setPage(0);
+    cargarEmpleados(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search, soloActivos]);
 
-        const page = await fetchEmpleados(0, 20);
-        setData(page);
-      } catch (err) {
-        console.error(err);
-        setError("Error al cargar empleados.");
-      } finally {
-        setLoading(false);
-      }
-    };
+  // --- Toolbar ---
+  const handleNuevo = () => {
+    setEmpleadoEdit(null);
+    setOpenForm(true);
+  };
 
-    load();
-  }, []);
+  const handleRefresh = () => {
+    cargarEmpleados(0);
+  };
+
+  // --- Cambio de página desde la tabla ---
+  const handlePageChange = (newPage: number) => {
+    setPage(newPage);
+    cargarEmpleados(newPage);
+  };
+
+  // --- Tabla: editar / eliminar ---
+  const handleEditar = (empleado: Empleado) => {
+    setEmpleadoEdit(empleado);
+    setOpenForm(true);
+  };
+
+  const handleSolicitarEliminar = (empleado: Empleado) => {
+    setEmpleadoDelete(empleado);
+    setOpenConfirmDelete(true);
+  };
+
+  // --- Form modal: después de guardar ---
+  const handleSaved = async () => {
+    setOpenForm(false);
+    setEmpleadoEdit(null);
+    await cargarEmpleados(page);
+  };
+
+  // --- Confirmar eliminación ---
+  const handleConfirmarEliminar = async () => {
+    if (!empleadoDelete) return;
+
+    try {
+      await deleteEmpleado(empleadoDelete.id);
+      setOpenConfirmDelete(false);
+      setEmpleadoDelete(null);
+      await cargarEmpleados(page);
+    } catch (err) {
+      console.error(err);
+      setError("Error al eliminar empleado");
+    }
+  };
+
+  // --- Stats rápidos (sobre la página actual) ---
+  const total = empleados.length;
+  const activos = empleados.filter((e) => e.activo).length;
+  const inactivos = total - activos;
 
   return (
-    <Box sx={{ mt: 2 }}>
-      <Paper sx={{ p: 3 }}>
-        <Typography variant="h4" gutterBottom>
+    <Box p={3}>
+      <Stack spacing={2}>
+        <Typography variant="h4" fontWeight={600}>
           Empleados
         </Typography>
 
-        {loading && (
-          <Box display="flex" justifyContent="center" my={4}>
-            <CircularProgress />
-          </Box>
-        )}
+        <EmpleadosStats total={total} activos={activos} inactivos={inactivos} />
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 2 }}>
-            {error}
-          </Alert>
-        )}
+        <Paper elevation={3} sx={{ p: 2, borderRadius: 3 }}>
+          {loading && (
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{ mb: 1 }}
+            >
+              Cargando empleados...
+            </Typography>
+          )}
+          {error && (
+            <Typography variant="body2" color="error" sx={{ mb: 1 }}>
+              {error}
+            </Typography>
+          )}
 
-        {!loading && !error && data && (
-          <TableContainer component={Paper} sx={{ mt: 2 }}>
-            <Table size="small">
-              <TableHead>
-                <TableRow>
-                  <TableCell>Num. Empleado</TableCell>
-                  <TableCell>Nombre</TableCell>
-                  <TableCell>Teléfono</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Fecha ingreso</TableCell>
-                  <TableCell>Activo</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {data.content.map((emp: Empleado) => (
-                  <TableRow key={emp.id}>
-                    <TableCell>{emp.numEmpleado}</TableCell>
-                    <TableCell>
-                      {emp.nombres} {emp.apellidoPaterno}{" "}
-                      {emp.apellidoMaterno ?? ""}
-                    </TableCell>
-                    <TableCell>{emp.telefono ?? "-"}</TableCell>
-                    <TableCell>{emp.email ?? "-"}</TableCell>
-                    <TableCell>{emp.fechaIngreso}</TableCell>
-                    <TableCell>{emp.activo ? "Sí" : "No"}</TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        )}
+          <EmpleadosToolbar
+            search={search}
+            onSearchChange={setSearch}
+            soloActivos={soloActivos}
+            onSoloActivosChange={setSoloActivos}
+            onNuevo={handleNuevo}
+            onRefresh={handleRefresh}
+          />
 
-        {!loading && !error && data && data.content.length === 0 && (
-          <Typography sx={{ mt: 2 }}>No hay empleados registrados.</Typography>
-        )}
-      </Paper>
+          <EmpleadosTable
+            empleados={empleados}
+            page={page}
+            totalPages={totalPages}
+            onPageChange={handlePageChange}
+            onEdit={handleEditar}
+            onDelete={handleSolicitarEliminar}
+          />
+        </Paper>
+      </Stack>
+
+      <EmpleadoFormModal
+        open={openForm}
+        onClose={() => {
+          setOpenForm(false);
+          setEmpleadoEdit(null);
+        }}
+        empleado={empleadoEdit}
+        onSaved={handleSaved}
+      />
+
+      <ConfirmDeleteDialog
+        open={openConfirmDelete}
+        title="Eliminar empleado"
+        description={
+          empleadoDelete
+            ? `¿Seguro que deseas eliminar a ${empleadoDelete.nombres} ${empleadoDelete.apellidoPaterno}?`
+            : ""
+        }
+        onCancel={() => {
+          setOpenConfirmDelete(false);
+          setEmpleadoDelete(null);
+        }}
+        onConfirm={handleConfirmarEliminar}
+      />
     </Box>
   );
 };
+
+export default EmpleadosPage;
