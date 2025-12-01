@@ -35,6 +35,9 @@ export interface EmpleadosToolbarProps {
   empleados: Empleado[];
   filtrosDescripcion?: string;
   loading?: boolean;
+
+  // control por roles
+  canCreate?: boolean; // opcional, default true
 }
 
 export const EmpleadosToolbar: React.FC<EmpleadosToolbarProps> = ({
@@ -47,6 +50,7 @@ export const EmpleadosToolbar: React.FC<EmpleadosToolbarProps> = ({
   empleados,
   filtrosDescripcion,
   loading,
+  canCreate = true,
 }) => {
   const handleSearchChange = (
     event: React.ChangeEvent<HTMLInputElement>
@@ -174,6 +178,7 @@ export const EmpleadosToolbar: React.FC<EmpleadosToolbarProps> = ({
           variant="contained"
           startIcon={<AddIcon />}
           onClick={onNuevo}
+          disabled={!canCreate}
         >
           Nuevo empleado
         </Button>

@@ -19,13 +19,16 @@ import {
 } from "@mui/icons-material";
 import type { Empleado } from "../api/empleadosApi";
 
-interface EmpleadosTableProps {
+export interface EmpleadosTableProps {
   empleados: Empleado[];
   page: number;                 // 0-based
   totalPages: number;           // backend totalPages
   onPageChange: (page: number) => void; // 0-based
   onEdit: (empleado: Empleado) => void;
   onDelete: (empleado: Empleado) => void;
+
+  canEdit?: boolean;    // nuevo
+  canDelete?: boolean;  // nuevo
 }
 
 function formatearNombre(e: Empleado) {
@@ -39,6 +42,8 @@ const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
   onPageChange,
   onEdit,
   onDelete,
+  canEdit = true,
+  canDelete = true,
 }) => {
   const handlePageChange = (_: React.ChangeEvent<unknown>, newPage: number) => {
     // Pagination es 1-based; convertimos a 0-based para el padre
@@ -119,21 +124,25 @@ const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
                   />
                 </TableCell>
                 <TableCell align="right">
-                  <IconButton
-                    size="small"
-                    onClick={() => onEdit(e)}
-                    aria-label="Editar empleado"
-                  >
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => onDelete(e)}
-                    aria-label="Eliminar empleado"
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
+                  {canEdit && (
+                    <IconButton
+                      size="small"
+                      onClick={() => onEdit(e)}
+                      aria-label="Editar empleado"
+                    >
+                      <EditIcon fontSize="small" />
+                    </IconButton>
+                  )}
+                  {canDelete && (
+                    <IconButton
+                      size="small"
+                      color="error"
+                      onClick={() => onDelete(e)}
+                      aria-label="Eliminar empleado"
+                    >
+                      <DeleteIcon fontSize="small" />
+                    </IconButton>
+                  )}
                 </TableCell>
               </TableRow>
             ))

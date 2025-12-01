@@ -11,8 +11,16 @@ import { EmpleadosStats } from "../components/EmpleadosStats";
 import EmpleadosTable from "../components/EmpleadosTable";
 import EmpleadoFormModal from "../components/EmpleadoFormModal";
 import { ConfirmDeleteDialog } from "../components/ConfirmDeleteDialog";
+import { useAuth } from "../context/AuthContext";
 
 const EmpleadosPage: React.FC = () => {
+  const { hasRole } = useAuth();
+
+  // permisos por rol
+  const canCreate = hasRole("SUPERADMIN", "ADMIN", "RRHH");
+  const canEdit = hasRole("SUPERADMIN", "ADMIN", "RRHH");
+  const canDelete = hasRole("SUPERADMIN", "ADMIN");
+
   const [empleados, setEmpleados] = useState<Empleado[]>([]);
   const [page, setPage] = useState(0); // 0-based
   const [totalPages, setTotalPages] = useState(1);
@@ -61,6 +69,7 @@ const EmpleadosPage: React.FC = () => {
 
   // --- Toolbar ---
   const handleNuevo = () => {
+    if (!canCreate) return;
     setEmpleadoEdit(null);
     setOpenForm(true);
   };
@@ -77,11 +86,13 @@ const EmpleadosPage: React.FC = () => {
 
   // --- Tabla: editar / eliminar ---
   const handleEditar = (empleado: Empleado) => {
+    if (!canEdit) return;
     setEmpleadoEdit(empleado);
     setOpenForm(true);
   };
 
   const handleSolicitarEliminar = (empleado: Empleado) => {
+    if (!canDelete) return;
     setEmpleadoDelete(empleado);
     setOpenConfirmDelete(true);
   };
@@ -157,6 +168,7 @@ const EmpleadosPage: React.FC = () => {
             empleados={empleados}
             filtrosDescripcion={filtrosDescripcion}
             loading={loading}
+            canCreate={canCreate}
           />
 
           <EmpleadosTable
@@ -166,6 +178,8 @@ const EmpleadosPage: React.FC = () => {
             onPageChange={handlePageChange}
             onEdit={handleEditar}
             onDelete={handleSolicitarEliminar}
+            canEdit={canEdit}
+            canDelete={canDelete}
           />
         </Paper>
       </Stack>
