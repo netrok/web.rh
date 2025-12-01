@@ -55,7 +55,7 @@ const EmpleadosPage: React.FC = () => {
   // Primera carga y cuando cambian filtros/buscador
   useEffect(() => {
     setPage(0);
-    cargarEmpleados(0);
+    void cargarEmpleados(0);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, soloActivos]);
 
@@ -66,13 +66,13 @@ const EmpleadosPage: React.FC = () => {
   };
 
   const handleRefresh = () => {
-    cargarEmpleados(0);
+    void cargarEmpleados(0);
   };
 
   // --- Cambio de página desde la tabla ---
   const handlePageChange = (newPage: number) => {
     setPage(newPage);
-    cargarEmpleados(newPage);
+    void cargarEmpleados(newPage);
   };
 
   // --- Tabla: editar / eliminar ---
@@ -113,6 +113,15 @@ const EmpleadosPage: React.FC = () => {
   const activos = empleados.filter((e) => e.activo).length;
   const inactivos = total - activos;
 
+  // --- Descripción filtros para PDF ---
+  const filtrosDescripcion = [
+    soloActivos ? "Solo activos" : "Todos",
+    `Página ${page + 1} de ${totalPages}`,
+    search ? `Búsqueda: "${search}"` : "",
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
   return (
     <Box p={3}>
       <Stack spacing={2}>
@@ -145,6 +154,9 @@ const EmpleadosPage: React.FC = () => {
             onSoloActivosChange={setSoloActivos}
             onNuevo={handleNuevo}
             onRefresh={handleRefresh}
+            empleados={empleados}
+            filtrosDescripcion={filtrosDescripcion}
+            loading={loading}
           />
 
           <EmpleadosTable

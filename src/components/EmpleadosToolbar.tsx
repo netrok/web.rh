@@ -9,10 +9,19 @@ import {
   FormControlLabel,
   Switch,
   Tooltip,
+  InputAdornment,
 } from "@mui/material";
 import SearchIcon from "@mui/icons-material/Search";
 import RefreshIcon from "@mui/icons-material/Refresh";
 import AddIcon from "@mui/icons-material/Add";
+import TableViewIcon from "@mui/icons-material/TableView";
+import PictureAsPdfIcon from "@mui/icons-material/PictureAsPdf";
+
+import type { Empleado } from "../api/empleadosApi";
+import {
+  exportEmpleadosToXlsx,
+  exportEmpleadosToPdf,
+} from "../utils/empleadosExport";
 
 export interface EmpleadosToolbarProps {
   search: string;
@@ -21,6 +30,11 @@ export interface EmpleadosToolbarProps {
   onSoloActivosChange: (value: boolean) => void;
   onNuevo: () => void;
   onRefresh: () => void;
+
+  // para export
+  empleados: Empleado[];
+  filtrosDescripcion?: string;
+  loading?: boolean;
 }
 
 export const EmpleadosToolbar: React.FC<EmpleadosToolbarProps> = ({
@@ -30,6 +44,9 @@ export const EmpleadosToolbar: React.FC<EmpleadosToolbarProps> = ({
   onSoloActivosChange,
   onNuevo,
   onRefresh,
+  empleados,
+  filtrosDescripcion,
+  loading,
 }) => {
   const handleSearchChange = (
     event: React.ChangeEvent<HTMLInputElement>
@@ -43,6 +60,26 @@ export const EmpleadosToolbar: React.FC<EmpleadosToolbarProps> = ({
     onSoloActivosChange(event.target.checked);
   };
 
+  const handleExportXlsx = () => {
+    if (!empleados.length) {
+      alert("No hay empleados para exportar.");
+      return;
+    }
+    exportEmpleadosToXlsx(empleados, "empleados.xlsx");
+  };
+
+  const handleExportPdf = () => {
+    if (!empleados.length) {
+      alert("No hay empleados para exportar.");
+      return;
+    }
+    exportEmpleadosToPdf(empleados, {
+      titulo: "Listado de empleados",
+      filtrosDescripcion,
+      fileName: "empleados.pdf",
+    });
+  };
+
   return (
     <Box
       sx={{
@@ -54,6 +91,7 @@ export const EmpleadosToolbar: React.FC<EmpleadosToolbarProps> = ({
         justifyContent: "space-between",
       }}
     >
+      {/* Filtros izquierda */}
       <Stack
         direction="row"
         spacing={1}
@@ -67,7 +105,11 @@ export const EmpleadosToolbar: React.FC<EmpleadosToolbarProps> = ({
           value={search}
           onChange={handleSearchChange}
           InputProps={{
-            startAdornment: <SearchIcon fontSize="small" sx={{ mr: 1 }} />,
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
           }}
         />
 
@@ -85,11 +127,47 @@ export const EmpleadosToolbar: React.FC<EmpleadosToolbarProps> = ({
         </Tooltip>
       </Stack>
 
-      <Stack direction="row" spacing={1} justifyContent="flex-end">
+      {/* Acciones derecha */}
+      <Stack
+        direction="row"
+        spacing={1}
+        justifyContent="flex-end"
+        sx={{ mt: { xs: 1, sm: 0 } }}
+      >
+        <Tooltip title="Exportar a Excel">
+          <span>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<TableViewIcon />}
+              onClick={handleExportXlsx}
+              disabled={loading || empleados.length === 0}
+            >
+              Excel
+            </Button>
+          </span>
+        </Tooltip>
+
+        <Tooltip title="Exportar a PDF">
+          <span>
+            <Button
+              variant="outlined"
+              size="small"
+              startIcon={<PictureAsPdfIcon />}
+              onClick={handleExportPdf}
+              disabled={loading || empleados.length === 0}
+            >
+              PDF
+            </Button>
+          </span>
+        </Tooltip>
+
         <Tooltip title="Recargar lista">
-          <IconButton onClick={onRefresh}>
-            <RefreshIcon />
-          </IconButton>
+          <span>
+            <IconButton onClick={onRefresh} disabled={loading}>
+              <RefreshIcon />
+            </IconButton>
+          </span>
         </Tooltip>
 
         <Button
