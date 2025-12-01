@@ -8,19 +8,47 @@ const apiClient = axios.create({
   headers: {
     "Content-Type": "application/json",
   },
+  timeout: 15000,
 });
 
-// Interceptor para agregar el token en cada request
-apiClient.interceptors.request.use((config) => {
-  const accessToken = localStorage.getItem("accessToken");
+// 1) Interceptor de REQUEST → agrega el token a cada petición
+apiClient.interceptors.request.use(
+  (config) => {
+    const accessToken = localStorage.getItem("accessToken");
 
-  if (accessToken) {
-    config.headers = config.headers ?? {};
-    config.headers.Authorization = `Bearer ${accessToken}`;
+    if (accessToken) {
+      config.headers = config.headers ?? {};
+      config.headers.Authorization = `Bearer ${accessToken}`;
+    }
+
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
+);
 
-  return config;
-});
+// 2) Interceptor de RESPONSE → maneja 401 (token inválido/expirado)
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error.response?.status;
+
+    // Solo deslogueamos en 401.
+    // 403 puede ser "no tienes permisos", pero el token sigue siendo válido.
+    if (status === 401) {
+      localStorage.removeItem("accessToken");
+      localStorage.removeItem("username");
+      localStorage.removeItem("roles");
+
+      if (window.location.pathname !== "/login") {
+        window.location.href = "/login";
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 export default apiClient;
 export { apiClient };
