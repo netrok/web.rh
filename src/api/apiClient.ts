@@ -1,7 +1,9 @@
 // src/api/apiClient.ts
 import axios from "axios";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL ?? "http://localhost:8080";
+// Aquí forzamos a TypeScript a no chillar por import.meta.env
+const API_BASE_URL =
+  (import.meta as any).env?.VITE_API_URL ?? "http://localhost:8080";
 
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
@@ -34,8 +36,6 @@ apiClient.interceptors.response.use(
   (error) => {
     const status = error.response?.status;
 
-    // Solo deslogueamos en 401.
-    // 403 puede ser "no tienes permisos", pero el token sigue siendo válido.
     if (status === 401) {
       localStorage.removeItem("accessToken");
       localStorage.removeItem("username");
