@@ -5,33 +5,48 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Button,
   TextField,
+  Button,
   Stack,
   FormControlLabel,
   Switch,
+  Typography,
 } from "@mui/material";
 import {
   createEmpleado,
   updateEmpleado,
   type Empleado,
-  type EmpleadoCreateRequest,
-  type EmpleadoUpdateRequest,
 } from "../api/empleadosApi";
 
-interface EmpleadoFormModalProps {
+export interface EmpleadoFormModalProps {
   open: boolean;
   onClose: () => void;
   empleado: Empleado | null;
-  onSaved: () => void;
+  onSaved: () => void; // se llama después de guardar correctamente
 }
 
-type FormErrors = {
-  numEmpleado?: string;
-  nombres?: string;
-  apellidoPaterno?: string;
-  fechaIngreso?: string;
-  email?: string;
+type EmpleadoFormState = {
+  numEmpleado: string;
+  nombres: string;
+  apellidoPaterno: string;
+  apellidoMaterno: string;
+  telefono: string;
+  email: string;
+  fechaIngreso: string; // yyyy-MM-dd
+  activo: boolean;
+};
+
+type EmpleadoFormErrors = Partial<Record<keyof EmpleadoFormState, string>>;
+
+const EMPTY_FORM: EmpleadoFormState = {
+  numEmpleado: "",
+  nombres: "",
+  apellidoPaterno: "",
+  apellidoMaterno: "",
+  telefono: "",
+  email: "",
+  fechaIngreso: "",
+  activo: true,
 };
 
 const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
@@ -40,67 +55,87 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
   empleado,
   onSaved,
 }) => {
-  const isEdit = Boolean(empleado);
-
-  const [numEmpleado, setNumEmpleado] = useState("");
-  const [nombres, setNombres] = useState("");
-  const [apellidoPaterno, setApellidoPaterno] = useState("");
-  const [apellidoMaterno, setApellidoMaterno] = useState("");
-  const [telefono, setTelefono] = useState("");
-  const [email, setEmail] = useState("");
-  const [fechaIngreso, setFechaIngreso] = useState("");
-  const [activo, setActivo] = useState(true);
+  const [form, setForm] = useState<EmpleadoFormState>(EMPTY_FORM);
+  const [errors, setErrors] = useState<EmpleadoFormErrors>({});
   const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [errors, setErrors] = useState<FormErrors>({});
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
+  const esEdicion = !!empleado;
+
+  // Cargar datos cuando se abre o cambia "empleado"
   useEffect(() => {
     if (empleado) {
-      setNumEmpleado(empleado.numEmpleado);
-      setNombres(empleado.nombres);
-      setApellidoPaterno(empleado.apellidoPaterno);
-      setApellidoMaterno(empleado.apellidoMaterno ?? "");
-      setTelefono(empleado.telefono ?? "");
-      setEmail(empleado.email ?? "");
-      setFechaIngreso(empleado.fechaIngreso);
-      setActivo(empleado.activo);
+      setForm({
+        numEmpleado: empleado.numEmpleado ?? "",
+        nombres: empleado.nombres ?? "",
+        apellidoPaterno: empleado.apellidoPaterno ?? "",
+        apellidoMaterno: empleado.apellidoMaterno ?? "",
+        telefono: empleado.telefono ?? "",
+        email: empleado.email ?? "",
+        fechaIngreso: empleado.fechaIngreso
+          ? empleado.fechaIngreso.substring(0, 10)
+          : "",
+        activo: empleado.activo,
+      });
     } else {
-      setNumEmpleado("");
-      setNombres("");
-      setApellidoPaterno("");
-      setApellidoMaterno("");
-      setTelefono("");
-      setEmail("");
-      setFechaIngreso(new Date().toISOString().slice(0, 10));
-      setActivo(true);
+      setForm(EMPTY_FORM);
     }
-    setError(null);
     setErrors({});
+    setSubmitError(null);
   }, [empleado, open]);
 
+  const handleChange =
+    (field: keyof EmpleadoFormState) =>
+    (event: React.ChangeEvent<HTMLInputElement>) => {
+      const value =
+        field === "activo" ? event.target.checked : event.target.value;
+      setForm((prev) => ({ ...prev, [field]: value }));
+      // limpiar error en cuanto el usuario edita
+      setErrors((prev) => ({ ...prev, [field]: "" }));
+    };
+
+  // Validaciones básicas
   const validate = (): boolean => {
-    const newErrors: FormErrors = {};
+    const newErrors: EmpleadoFormErrors = {};
 
-    if (!isEdit && !numEmpleado.trim()) {
-      newErrors.numEmpleado = "El número de empleado es obligatorio.";
+    if (!form.numEmpleado.trim()) {
+      newErrors.numEmpleado = "El número de empleado es obligatorio";
     }
 
-    if (!nombres.trim()) {
-      newErrors.nombres = "El nombre es obligatorio.";
+    if (!form.nombres.trim()) {
+      newErrors.nombres = "Los nombres son obligatorios";
     }
 
-    if (!apellidoPaterno.trim()) {
-      newErrors.apellidoPaterno = "El apellido paterno es obligatorio.";
+    if (!form.apellidoPaterno.trim()) {
+      newErrors.apellidoPaterno = "El apellido paterno es obligatorio";
     }
 
-    if (!fechaIngreso) {
-      newErrors.fechaIngreso = "La fecha de ingreso es obligatoria.";
+    // hacemos obligatoria la fecha de ingreso (tiene sentido en RH)
+    if (!form.fechaIngreso) {
+      newErrors.fechaIngreso = "La fecha de ingreso es obligatoria";
     }
 
-    if (email.trim()) {
+    if (form.email.trim()) {
       const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(email.trim())) {
-        newErrors.email = "Ingresa un email válido.";
+      if (!emailRegex.test(form.email.trim())) {
+        newErrors.email = "Correo electrónico no válido";
+      }
+    }
+
+    if (form.telefono.trim()) {
+      const telSoloDigitos = form.telefono.replace(/\D/g, "");
+      if (telSoloDigitos.length < 8) {
+        newErrors.telefono = "Teléfono demasiado corto";
+      }
+    }
+
+    if (form.fechaIngreso) {
+      const hoy = new Date();
+      const fi = new Date(form.fechaIngreso);
+      hoy.setHours(0, 0, 0, 0);
+      fi.setHours(0, 0, 0, 0);
+      if (fi > hoy) {
+        newErrors.fechaIngreso = "La fecha de ingreso no puede ser futura";
       }
     }
 
@@ -108,165 +143,178 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault();
-
+  const handleSubmit = async () => {
     if (!validate()) {
       return;
     }
 
-    try {
-      setSaving(true);
-      setError(null);
+    setSaving(true);
+    setSubmitError(null);
 
-      if (isEdit && empleado) {
-        const payload: EmpleadoUpdateRequest = {
-          nombres,
-          apellidoPaterno,
-          apellidoMaterno: apellidoMaterno || undefined,
-          telefono: telefono || undefined,
-          email: email || undefined,
-          fechaIngreso,
-          activo,
-        };
+    try {
+      const payload = {
+        numEmpleado: form.numEmpleado.trim(),
+        nombres: form.nombres.trim(),
+        apellidoPaterno: form.apellidoPaterno.trim(),
+
+        // opcionales: string | undefined
+        apellidoMaterno: form.apellidoMaterno.trim() || undefined,
+        telefono: form.telefono.trim() || undefined,
+        email: form.email.trim() || undefined,
+
+        // requerida en tus tipos: siempre string (usamos "" si por algo viniera vacía,
+        // aunque la validación ya evita eso)
+        fechaIngreso: form.fechaIngreso || "",
+
+        activo: form.activo,
+      };
+
+      if (esEdicion && empleado) {
         await updateEmpleado(empleado.id, payload);
       } else {
-        const payload: EmpleadoCreateRequest = {
-          numEmpleado,
-          nombres,
-          apellidoPaterno,
-          apellidoMaterno: apellidoMaterno || undefined,
-          telefono: telefono || undefined,
-          email: email || undefined,
-          fechaIngreso,
-        };
         await createEmpleado(payload);
       }
 
-      onSaved();
+      await onSaved();
     } catch (err) {
       console.error(err);
-      setError("Error al guardar el empleado");
+      setSubmitError("Ocurrió un error al guardar el empleado.");
     } finally {
       setSaving(false);
     }
   };
 
   const handleClose = () => {
-    if (!saving) {
-      onClose();
-    }
+    if (saving) return; // evitar cerrar mientras guarda
+    onClose();
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{isEdit ? "Editar empleado" : "Nuevo empleado"}</DialogTitle>
-      <form onSubmit={handleSubmit}>
-        <DialogContent dividers>
-          <Stack spacing={2}>
-            {!isEdit && (
-              <TextField
-                label="Número de empleado"
-                size="small"
-                fullWidth
-                required
-                value={numEmpleado}
-                onChange={(e) => setNumEmpleado(e.target.value)}
-                error={Boolean(errors.numEmpleado)}
-                helperText={errors.numEmpleado}
-              />
-            )}
+    <Dialog
+      open={open}
+      onClose={handleClose}
+      fullWidth
+      maxWidth="sm"
+      PaperProps={{ sx: { borderRadius: 3 } }}
+    >
+      <DialogTitle>
+        {esEdicion ? "Editar empleado" : "Nuevo empleado"}
+      </DialogTitle>
 
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <TextField
-                label="Nombres"
-                size="small"
-                fullWidth
-                required
-                value={nombres}
-                onChange={(e) => setNombres(e.target.value)}
-                error={Boolean(errors.nombres)}
-                helperText={errors.nombres}
-              />
-              <TextField
-                label="Apellido paterno"
-                size="small"
-                fullWidth
-                required
-                value={apellidoPaterno}
-                onChange={(e) => setApellidoPaterno(e.target.value)}
-                error={Boolean(errors.apellidoPaterno)}
-                helperText={errors.apellidoPaterno}
-              />
-            </Stack>
+      <DialogContent dividers>
+        {submitError && (
+          <Typography color="error" variant="body2" sx={{ mb: 2 }}>
+            {submitError}
+          </Typography>
+        )}
 
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <TextField
-                label="Apellido materno"
-                size="small"
-                fullWidth
-                value={apellidoMaterno}
-                onChange={(e) => setApellidoMaterno(e.target.value)}
-              />
-              <TextField
-                label="Teléfono"
-                size="small"
-                fullWidth
-                value={telefono}
-                onChange={(e) => setTelefono(e.target.value)}
-              />
-            </Stack>
-
-            <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-              <TextField
-                label="Email"
-                size="small"
-                type="email"
-                fullWidth
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                error={Boolean(errors.email)}
-                helperText={errors.email}
-              />
-              <TextField
-                label="Fecha de ingreso"
-                size="small"
-                type="date"
-                fullWidth
-                InputLabelProps={{ shrink: true }}
-                value={fechaIngreso}
-                onChange={(e) => setFechaIngreso(e.target.value)}
-                error={Boolean(errors.fechaIngreso)}
-                helperText={errors.fechaIngreso}
-              />
-            </Stack>
-
-            {isEdit && (
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={activo}
-                    onChange={(e) => setActivo(e.target.checked)}
-                  />
-                }
-                label="Activo"
-              />
-            )}
-
-            {error && (
-              <span style={{ color: "#d32f2f", fontSize: 12 }}>{error}</span>
-            )}
+        <Stack spacing={2} mt={1}>
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+            <TextField
+              label="Num. empleado"
+              value={form.numEmpleado}
+              onChange={handleChange("numEmpleado")}
+              fullWidth
+              size="small"
+              required
+              error={!!errors.numEmpleado}
+              helperText={errors.numEmpleado}
+            />
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={form.activo}
+                  onChange={handleChange("activo")}
+                  size="small"
+                />
+              }
+              label="Activo"
+              sx={{ ml: { xs: 0, sm: 1 }, mt: { xs: 1, sm: 0.5 } }}
+            />
           </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleClose} disabled={saving}>
-            Cancelar
-          </Button>
-          <Button type="submit" variant="contained" disabled={saving}>
-            {isEdit ? "Guardar cambios" : "Crear"}
-          </Button>
-        </DialogActions>
-      </form>
+
+          <TextField
+            label="Nombres"
+            value={form.nombres}
+            onChange={handleChange("nombres")}
+            fullWidth
+            size="small"
+            required
+            error={!!errors.nombres}
+            helperText={errors.nombres}
+          />
+
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+            <TextField
+              label="Apellido paterno"
+              value={form.apellidoPaterno}
+              onChange={handleChange("apellidoPaterno")}
+              fullWidth
+              size="small"
+              required
+              error={!!errors.apellidoPaterno}
+              helperText={errors.apellidoPaterno}
+            />
+            <TextField
+              label="Apellido materno"
+              value={form.apellidoMaterno}
+              onChange={handleChange("apellidoMaterno")}
+              fullWidth
+              size="small"
+              error={!!errors.apellidoMaterno}
+              helperText={errors.apellidoMaterno}
+            />
+          </Stack>
+
+          <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+            <TextField
+              label="Teléfono"
+              value={form.telefono}
+              onChange={handleChange("telefono")}
+              fullWidth
+              size="small"
+              error={!!errors.telefono}
+              helperText={errors.telefono}
+            />
+            <TextField
+              label="Email"
+              type="email"
+              value={form.email}
+              onChange={handleChange("email")}
+              fullWidth
+              size="small"
+              error={!!errors.email}
+              helperText={errors.email}
+            />
+          </Stack>
+
+          <TextField
+            label="Fecha de ingreso"
+            type="date"
+            value={form.fechaIngreso}
+            onChange={handleChange("fechaIngreso")}
+            fullWidth
+            size="small"
+            InputLabelProps={{ shrink: true }}
+            required
+            error={!!errors.fechaIngreso}
+            helperText={errors.fechaIngreso}
+          />
+        </Stack>
+      </DialogContent>
+
+      <DialogActions sx={{ p: 2.5 }}>
+        <Button onClick={handleClose} disabled={saving}>
+          Cancelar
+        </Button>
+        <Button
+          variant="contained"
+          onClick={handleSubmit}
+          disabled={saving}
+        >
+          {saving ? "Guardando..." : "Guardar"}
+        </Button>
+      </DialogActions>
     </Dialog>
   );
 };
