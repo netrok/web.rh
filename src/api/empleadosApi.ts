@@ -1,5 +1,7 @@
 // src/api/empleadosApi.ts
-import apiClient from "./apiClient";
+import { apiClient } from "./apiClient";
+
+// ----- Tipos -----
 
 export interface Empleado {
   id: number;
@@ -9,8 +11,66 @@ export interface Empleado {
   apellidoMaterno: string | null;
   telefono: string | null;
   email: string | null;
-  fechaIngreso: string; // ISO (YYYY-MM-DD)
+  fechaIngreso: string | null; // ISO yyyy-MM-dd o fecha completa
   activo: boolean;
+
+  // básicos adicionales
+  fechaNacimiento: string | null;
+  genero: string | null;
+  estadoCivil: string | null;
+  curp: string | null;
+  rfc: string | null;
+  nss: string | null;
+  foto: string | null;
+
+  // FK simples (ids)
+  departamentoId: number | null;
+  puestoId: number | null;
+  turnoId: number | null;
+  horarioId: number | null;
+  supervisorId: number | null;
+
+  // domicilio
+  calle: string | null;
+  numExt: string | null;
+  numInt: string | null;
+  colonia: string | null;
+  municipio: string | null;
+  estado: string | null;
+  cp: string | null;
+  nacionalidad: string | null;
+  lugarNacimiento: string | null;
+
+  // escolaridad / médico
+  escolaridad: string | null;
+  tipoSangre: string | null;
+
+  // contacto emergencia
+  contactoNombre: string | null;
+  contactoTelefono: string | null;
+  contactoParentesco: string | null;
+
+  // bancario / nómina
+  banco: string | null;
+  cuentaBancaria: string | null;
+  clabe: string | null;
+  salarioBase: number | null;
+  tipoContrato: string | null;
+  tipoJornada: string | null;
+  fechaBaja: string | null;
+  motivoBaja: string | null;
+
+  // IMSS / INFONAVIT / FONACOT
+  imssRegPatronal: string | null;
+  infonavitNumero: string | null;
+  infonavitDescuentoTipo: string | null;
+  infonavitDescuentoValor: number | null;
+  fonacotNumero: string | null;
+
+  // licencia
+  licenciaNumero: string | null;
+  licenciaTipo: string | null;
+  licenciaVigencia: string | null;
 }
 
 export interface EmpleadosPage {
@@ -23,90 +83,117 @@ export interface EmpleadosPage {
 
 // Parámetros cómodos para el front
 export type GetEmpleadosOptions = {
-  page?: number;        // 0-based
+  page?: number;       // 0-based
   size?: number;
   search?: string;
   soloActivos?: boolean; // true = solo activos, false/undefined = todos
 };
 
-export type EmpleadoCreateRequest = {
+// payload de alta
+export interface EmpleadoCreateRequest {
   numEmpleado: string;
   nombres: string;
   apellidoPaterno: string;
-  apellidoMaterno?: string;
-  telefono?: string;
-  email?: string;
-  fechaIngreso: string; // YYYY-MM-DD
-};
+  apellidoMaterno?: string | null;
+  telefono?: string | null;
+  email?: string | null;
+  fechaIngreso: string;   // yyyy-MM-dd requerido
+  activo?: boolean;
 
-export type EmpleadoUpdateRequest = {
-  nombres: string;
-  apellidoPaterno: string;
-  apellidoMaterno?: string;
-  telefono?: string;
-  email?: string;
-  fechaIngreso: string; // YYYY-MM-DD
+  fechaNacimiento?: string | null;
+  genero?: string | null;
+  estadoCivil?: string | null;
+  curp?: string | null;
+  rfc?: string | null;
+  nss?: string | null;
+  foto?: string | null;
+
+  departamentoId?: number | null;
+  puestoId?: number | null;
+  turnoId?: number | null;
+  horarioId?: number | null;
+  supervisorId?: number | null;
+
+  calle?: string | null;
+  numExt?: string | null;
+  numInt?: string | null;
+  colonia?: string | null;
+  municipio?: string | null;
+  estado?: string | null;
+  cp?: string | null;
+  nacionalidad?: string | null;
+  lugarNacimiento?: string | null;
+
+  escolaridad?: string | null;
+  tipoSangre?: string | null;
+
+  contactoNombre?: string | null;
+  contactoTelefono?: string | null;
+  contactoParentesco?: string | null;
+
+  banco?: string | null;
+  cuentaBancaria?: string | null;
+  clabe?: string | null;
+  salarioBase?: number | null;
+  tipoContrato?: string | null;
+  tipoJornada?: string | null;
+  fechaBaja?: string | null;
+  motivoBaja?: string | null;
+
+  imssRegPatronal?: string | null;
+  infonavitNumero?: string | null;
+  infonavitDescuentoTipo?: string | null;
+  infonavitDescuentoValor?: number | null;
+  fonacotNumero?: string | null;
+
+  licenciaNumero?: string | null;
+  licenciaTipo?: string | null;
+  licenciaVigencia?: string | null;
+}
+
+// payload de actualización
+export interface EmpleadoUpdateRequest extends EmpleadoCreateRequest {
   activo: boolean;
-};
+}
 
-// Función base que pega al backend con query params directos
-export async function fetchEmpleados(
-  page = 0,
-  size = 20,
-  search?: string,
-  activo?: boolean
+// ----- Funciones -----
+
+export async function getEmpleados(
+  options: GetEmpleadosOptions = {}
 ): Promise<EmpleadosPage> {
-  const params: Record<string, unknown> = { page, size };
+  const { page = 0, size = 10, search, soloActivos } = options;
+
+  const params: Record<string, unknown> = {
+    page,
+    size,
+  };
 
   if (search && search.trim() !== "") {
     params.q = search.trim();
   }
-
-  if (typeof activo === "boolean") {
-    params.activo = activo;
+  if (soloActivos !== undefined) {
+    params.activo = soloActivos;
   }
 
-  const res = await apiClient.get<EmpleadosPage>("/api/empleados", {
+  const response = await apiClient.get<EmpleadosPage>("/api/empleados", {
     params,
   });
-  return res.data;
+  return response.data;
 }
 
-// Versión friendly para el front (la que usas en EmpleadosPage)
-export async function getEmpleados(
-  options: GetEmpleadosOptions = {}
-): Promise<EmpleadosPage> {
-  const {
-    page = 0,
-    size = 20,
-    search,
-    soloActivos,
-  } = options;
-
-  // si soloActivos = true => activo=true
-  // si soloActivos = false/undefined => no mandamos filtro y vienen todos
-  const activo = soloActivos ? true : undefined;
-
-  return fetchEmpleados(page, size, search, activo);
-}
-
-// Crear empleado (nombre en inglés como usas en EmpleadosPage)
 export async function createEmpleado(
   payload: EmpleadoCreateRequest
 ): Promise<Empleado> {
-  const res = await apiClient.post<Empleado>("/api/empleados", payload);
-  return res.data;
+  const { data } = await apiClient.post<Empleado>("/api/empleados", payload);
+  return data;
 }
-
-// Alias en español por si en algún lado ya usabas crearEmpleado
-export { createEmpleado as crearEmpleado };
 
 export async function updateEmpleado(
   id: number,
   payload: EmpleadoUpdateRequest
 ): Promise<Empleado> {
-  const res = await apiClient.put<Empleado>(`/api/empleados/${id}`, payload);
-  return res.data;
+  const { data } = await apiClient.put<Empleado>(`/api/empleados/${id}`, payload);
+  return data;
 }
 
 export async function deleteEmpleado(id: number): Promise<void> {
