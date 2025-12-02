@@ -48,6 +48,13 @@ type EmpleadoFormState = {
   fechaIngreso: string; // yyyy-MM-dd
   activo: boolean;
 
+  // organización / catálogos
+  departamentoId: string;
+  puestoId: string;
+  turnoId: string;
+  horarioId: string;
+  supervisorId: string;
+
   // datos personales
   fechaNacimiento: string; // yyyy-MM-dd
   genero: string;
@@ -81,7 +88,6 @@ type EmpleadoFormState = {
   banco: string;
   cuentaBancaria: string;
   clabe: string;
-  salarioBase: string; // string en el form
   tipoContrato: string;
   tipoJornada: string;
 
@@ -92,14 +98,7 @@ type EmpleadoFormState = {
   // IMSS / INFONAVIT / FONACOT
   imssRegPatronal: string;
   infonavitNumero: string;
-  infonavitDescuentoTipo: string;
-  infonavitDescuentoValor: string; // string en form
   fonacotNumero: string;
-
-  // licencia
-  licenciaNumero: string;
-  licenciaTipo: string;
-  licenciaVigencia: string; // yyyy-MM-dd
 };
 
 type EmpleadoFormErrors = Partial<Record<keyof EmpleadoFormState, string>>;
@@ -113,6 +112,12 @@ const EMPTY_FORM: EmpleadoFormState = {
   email: "",
   fechaIngreso: "",
   activo: true,
+
+  departamentoId: "",
+  puestoId: "",
+  turnoId: "",
+  horarioId: "",
+  supervisorId: "",
 
   fechaNacimiento: "",
   genero: "",
@@ -142,7 +147,6 @@ const EMPTY_FORM: EmpleadoFormState = {
   banco: "",
   cuentaBancaria: "",
   clabe: "",
-  salarioBase: "",
   tipoContrato: "",
   tipoJornada: "",
 
@@ -151,13 +155,7 @@ const EMPTY_FORM: EmpleadoFormState = {
 
   imssRegPatronal: "",
   infonavitNumero: "",
-  infonavitDescuentoTipo: "",
-  infonavitDescuentoValor: "",
   fonacotNumero: "",
-
-  licenciaNumero: "",
-  licenciaTipo: "",
-  licenciaVigencia: "",
 };
 
 // Construye la URL pública de la foto a partir del valor que viene de la BD
@@ -171,13 +169,20 @@ const buildFotoUrl = (foto: string | null | undefined): string | null => {
 
   // BASE del backend
   const apiBase =
-  (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8080";
+    (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8080";
 
-
-  // Ahora sabemos que el backend sirve:
+  // El backend sirve:
   // file: ./uploads/empleados/<foto>
   // url:  http://localhost:8080/uploads/empleados/<foto>
   return `${apiBase}/uploads/empleados/${foto}`;
+};
+
+const parseNumberOrNull = (value: string): number | null => {
+  if (!value) return null;
+  const trimmed = value.trim();
+  if (!trimmed) return null;
+  const n = Number(trimmed);
+  return Number.isNaN(n) ? null : n;
 };
 
 const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
@@ -214,6 +219,14 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
           : "",
         activo: empleado.activo,
 
+        departamentoId:
+          empleado.departamentoId != null ? String(empleado.departamentoId) : "",
+        puestoId: empleado.puestoId != null ? String(empleado.puestoId) : "",
+        turnoId: empleado.turnoId != null ? String(empleado.turnoId) : "",
+        horarioId: empleado.horarioId != null ? String(empleado.horarioId) : "",
+        supervisorId:
+          empleado.supervisorId != null ? String(empleado.supervisorId) : "",
+
         fechaNacimiento: empleado.fechaNacimiento
           ? empleado.fechaNacimiento.substring(0, 10)
           : "",
@@ -244,10 +257,6 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         banco: empleado.banco ?? "",
         cuentaBancaria: empleado.cuentaBancaria ?? "",
         clabe: empleado.clabe ?? "",
-        salarioBase:
-          empleado.salarioBase !== null && empleado.salarioBase !== undefined
-            ? String(empleado.salarioBase)
-            : "",
         tipoContrato: empleado.tipoContrato ?? "",
         tipoJornada: empleado.tipoJornada ?? "",
 
@@ -258,19 +267,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
 
         imssRegPatronal: empleado.imssRegPatronal ?? "",
         infonavitNumero: empleado.infonavitNumero ?? "",
-        infonavitDescuentoTipo: empleado.infonavitDescuentoTipo ?? "",
-        infonavitDescuentoValor:
-          empleado.infonavitDescuentoValor !== null &&
-          empleado.infonavitDescuentoValor !== undefined
-            ? String(empleado.infonavitDescuentoValor)
-            : "",
         fonacotNumero: empleado.fonacotNumero ?? "",
-
-        licenciaNumero: empleado.licenciaNumero ?? "",
-        licenciaTipo: empleado.licenciaTipo ?? "",
-        licenciaVigencia: empleado.licenciaVigencia
-          ? empleado.licenciaVigencia.substring(0, 10)
-          : "",
       });
       setFotoFile(null);
       setFotoPreview(buildFotoUrl(empleado.foto));
@@ -380,25 +377,23 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       }
     }
 
+    if (form.fechaBaja && form.fechaIngreso) {
+      const fb = new Date(form.fechaBaja);
+      const fi = new Date(form.fechaIngreso);
+      fb.setHours(0, 0, 0, 0);
+      fi.setHours(0, 0, 0, 0);
+      if (fb < fi) {
+        newErrors.fechaBaja =
+          "La fecha de baja no puede ser anterior a la fecha de ingreso";
+      }
+    }
+
     if (form.curp && form.curp.trim().length > 0 && form.curp.trim().length < 18) {
       newErrors.curp = "La CURP debe tener 18 caracteres";
     }
+
     if (form.rfc && form.rfc.trim().length > 0 && form.rfc.trim().length < 12) {
       newErrors.rfc = "RFC demasiado corto";
-    }
-
-    if (form.salarioBase.trim()) {
-      const n = Number(form.salarioBase.trim());
-      if (Number.isNaN(n)) {
-        newErrors.salarioBase = "Salario base debe ser numérico";
-      }
-    }
-    if (form.infonavitDescuentoValor.trim()) {
-      const n = Number(form.infonavitDescuentoValor.trim());
-      if (Number.isNaN(n)) {
-        newErrors.infonavitDescuentoValor =
-          "Valor de descuento debe ser numérico";
-      }
     }
 
     setErrors(newErrors);
@@ -414,19 +409,6 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
     setSubmitError(null);
 
     try {
-      const salarioBaseStr = form.salarioBase.trim();
-      const infonavitDescStr = form.infonavitDescuentoValor.trim();
-
-      const salarioBaseNumber =
-        salarioBaseStr !== "" && !Number.isNaN(Number(salarioBaseStr))
-          ? Number(salarioBaseStr)
-          : null;
-
-      const infonavitDescNumber =
-        infonavitDescStr !== "" && !Number.isNaN(Number(infonavitDescStr))
-          ? Number(infonavitDescStr)
-          : null;
-
       const basePayload: EmpleadoCreateRequest = {
         numEmpleado: form.numEmpleado.trim(),
         nombres: form.nombres.trim(),
@@ -444,6 +426,12 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         rfc: form.rfc.trim() || null,
         nss: form.nss.trim() || null,
         foto: form.foto.trim() || null,
+
+        departamentoId: parseNumberOrNull(form.departamentoId),
+        puestoId: parseNumberOrNull(form.puestoId),
+        turnoId: parseNumberOrNull(form.turnoId),
+        horarioId: parseNumberOrNull(form.horarioId),
+        supervisorId: parseNumberOrNull(form.supervisorId),
 
         calle: form.calle.trim() || null,
         numExt: form.numExt.trim() || null,
@@ -465,7 +453,6 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
         banco: form.banco.trim() || null,
         cuentaBancaria: form.cuentaBancaria.trim() || null,
         clabe: form.clabe.trim() || null,
-        salarioBase: salarioBaseNumber,
         tipoContrato: form.tipoContrato.trim() || null,
         tipoJornada: form.tipoJornada.trim() || null,
         fechaBaja: form.fechaBaja || null,
@@ -473,14 +460,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
 
         imssRegPatronal: form.imssRegPatronal.trim() || null,
         infonavitNumero: form.infonavitNumero.trim() || null,
-        infonavitDescuentoTipo:
-          form.infonavitDescuentoTipo.trim() || null,
-        infonavitDescuentoValor: infonavitDescNumber,
         fonacotNumero: form.fonacotNumero.trim() || null,
-
-        licenciaNumero: form.licenciaNumero.trim() || null,
-        licenciaTipo: form.licenciaTipo.trim() || null,
-        licenciaVigencia: form.licenciaVigencia || null,
       };
 
       let saved: Empleado;
@@ -512,6 +492,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
       }
 
       await onSaved();
+      onClose(); // cerramos el modal después de guardar
     } catch (err) {
       console.error("Error al guardar empleado:", err);
       setSubmitError("Ocurrió un error al guardar los datos del empleado.");
@@ -555,7 +536,7 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
           <Tab label="Datos personales" />
           <Tab label="Domicilio" />
           <Tab label="Nómina / Seguridad social" />
-          <Tab label="Licencias / Baja" />
+          <Tab label="Baja" />
         </Tabs>
 
         {/* TAB 0: Datos básicos */}
@@ -653,6 +634,68 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                 error={!!errors.fechaIngreso}
                 helperText={errors.fechaIngreso}
               />
+
+              <Divider sx={{ my: 1 }} />
+
+              <Typography variant="subtitle2" color="text.secondary">
+                Organización
+              </Typography>
+
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                <TextField
+                  label="Departamento ID"
+                  value={form.departamentoId}
+                  onChange={handleChange("departamentoId")}
+                  fullWidth
+                  size="small"
+                  type="number"
+                  error={!!errors.departamentoId}
+                  helperText={errors.departamentoId}
+                />
+                <TextField
+                  label="Puesto ID"
+                  value={form.puestoId}
+                  onChange={handleChange("puestoId")}
+                  fullWidth
+                  size="small"
+                  type="number"
+                  error={!!errors.puestoId}
+                  helperText={errors.puestoId}
+                />
+              </Stack>
+
+              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
+                <TextField
+                  label="Turno ID"
+                  value={form.turnoId}
+                  onChange={handleChange("turnoId")}
+                  fullWidth
+                  size="small"
+                  type="number"
+                  error={!!errors.turnoId}
+                  helperText={errors.turnoId}
+                />
+                <TextField
+                  label="Horario ID"
+                  value={form.horarioId}
+                  onChange={handleChange("horarioId")}
+                  fullWidth
+                  size="small"
+                  type="number"
+                  error={!!errors.horarioId}
+                  helperText={errors.horarioId}
+                />
+                <TextField
+                  label="Supervisor ID"
+                  value={form.supervisorId}
+                  onChange={handleChange("supervisorId")}
+                  fullWidth
+                  size="small"
+                  type="number"
+                  error={!!errors.supervisorId}
+                  helperText={errors.supervisorId}
+                />
+              </Stack>
             </Stack>
           </Box>
         )}
@@ -992,15 +1035,6 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
 
               <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                 <TextField
-                  label="Salario base"
-                  value={form.salarioBase}
-                  onChange={handleChange("salarioBase")}
-                  fullWidth
-                  size="small"
-                  error={!!errors.salarioBase}
-                  helperText={errors.salarioBase}
-                />
-                <TextField
                   label="Tipo de contrato"
                   value={form.tipoContrato}
                   onChange={handleChange("tipoContrato")}
@@ -1049,24 +1083,6 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
 
               <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
                 <TextField
-                  label="INFONAVIT tipo descuento"
-                  value={form.infonavitDescuentoTipo}
-                  onChange={handleChange("infonavitDescuentoTipo")}
-                  fullWidth
-                  size="small"
-                  error={!!errors.infonavitDescuentoTipo}
-                  helperText={errors.infonavitDescuentoTipo}
-                />
-                <TextField
-                  label="INFONAVIT valor descuento"
-                  value={form.infonavitDescuentoValor}
-                  onChange={handleChange("infonavitDescuentoValor")}
-                  fullWidth
-                  size="small"
-                  error={!!errors.infonavitDescuentoValor}
-                  helperText={errors.infonavitDescuentoValor}
-                />
-                <TextField
                   label="FONACOT número"
                   value={form.fonacotNumero}
                   onChange={handleChange("fonacotNumero")}
@@ -1080,48 +1096,10 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
           </Box>
         )}
 
-        {/* TAB 4: Licencias / Baja */}
+        {/* TAB 4: Baja */}
         {tabIndex === 4 && (
           <Box>
             <Stack spacing={2} mt={1}>
-              <Typography variant="subtitle2" color="text.secondary">
-                Licencia de conducir
-              </Typography>
-
-              <Stack direction={{ xs: "column", sm: "row" }} spacing={2}>
-                <TextField
-                  label="Número de licencia"
-                  value={form.licenciaNumero}
-                  onChange={handleChange("licenciaNumero")}
-                  fullWidth
-                  size="small"
-                  error={!!errors.licenciaNumero}
-                  helperText={errors.licenciaNumero}
-                />
-                <TextField
-                  label="Tipo de licencia"
-                  value={form.licenciaTipo}
-                  onChange={handleChange("licenciaTipo")}
-                  fullWidth
-                  size="small"
-                  error={!!errors.licenciaTipo}
-                  helperText={errors.licenciaTipo}
-                />
-                <TextField
-                  label="Vigencia licencia"
-                  type="date"
-                  value={form.licenciaVigencia}
-                  onChange={handleChange("licenciaVigencia")}
-                  fullWidth
-                  size="small"
-                  InputLabelProps={{ shrink: true }}
-                  error={!!errors.licenciaVigencia}
-                  helperText={errors.licenciaVigencia}
-                />
-              </Stack>
-
-              <Divider />
-
               <Typography variant="subtitle2" color="text.secondary">
                 Baja
               </Typography>

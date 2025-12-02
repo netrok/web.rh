@@ -35,6 +35,12 @@ function formatearNombre(e: Empleado) {
   return `${e.nombres} ${e.apellidoPaterno} ${e.apellidoMaterno ?? ""}`.trim();
 }
 
+function formatearFecha(fecha?: string | null) {
+  if (!fecha) return "";
+  // Si viene en ISO completa, nos quedamos con los primeros 10 caracteres (yyyy-MM-dd)
+  return fecha.substring(0, 10);
+}
+
 const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
   empleados,
   page,
@@ -53,18 +59,16 @@ const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
     onPageChange(newPage - 1);
   };
 
-  const columnsCount = 10; // número total de columnas visibles
+  // Columnas visibles: No. empleado, Nombre, Teléfono, Email, Fecha ingreso, Activo, Acciones
+  const columnsCount = 7;
 
   return (
     <>
       <Table size="small">
         <TableHead>
           <TableRow>
-            <TableCell>ID</TableCell>
-            <TableCell>Número</TableCell>
+            <TableCell>No. empleado</TableCell>
             <TableCell>Nombre</TableCell>
-            <TableCell>CURP</TableCell>
-            <TableCell>RFC</TableCell>
             <TableCell>Teléfono</TableCell>
             <TableCell>Email</TableCell>
             <TableCell>Fecha ingreso</TableCell>
@@ -72,6 +76,7 @@ const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
             <TableCell align="right">Acciones</TableCell>
           </TableRow>
         </TableHead>
+
         <TableBody>
           {empleados.length === 0 ? (
             <TableRow>
@@ -95,19 +100,17 @@ const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
                   backgroundColor: e.activo ? "inherit" : "action.hover",
                 }}
               >
-                <TableCell>{e.id}</TableCell>
-
+                {/* No. empleado */}
                 <TableCell>
                   <Typography variant="body2" fontWeight="bold">
                     {e.numEmpleado}
                   </Typography>
                 </TableCell>
 
+                {/* Nombre completo */}
                 <TableCell>{formatearNombre(e)}</TableCell>
 
-                <TableCell>{e.curp ?? "-"}</TableCell>
-                <TableCell>{e.rfc ?? "-"}</TableCell>
-
+                {/* Teléfono */}
                 <TableCell>
                   {e.telefono ? (
                     <Tooltip title={e.telefono}>
@@ -118,6 +121,7 @@ const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
                   )}
                 </TableCell>
 
+                {/* Email */}
                 <TableCell>
                   {e.email ? (
                     <Tooltip title={e.email}>
@@ -128,8 +132,10 @@ const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
                   )}
                 </TableCell>
 
-                <TableCell>{e.fechaIngreso ?? ""}</TableCell>
+                {/* Fecha de ingreso */}
+                <TableCell>{formatearFecha(e.fechaIngreso)}</TableCell>
 
+                {/* Activo */}
                 <TableCell>
                   <Chip
                     label={e.activo ? "Activo" : "Inactivo"}
@@ -138,6 +144,7 @@ const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
                   />
                 </TableCell>
 
+                {/* Acciones */}
                 <TableCell align="right">
                   {canEdit && (
                     <IconButton
