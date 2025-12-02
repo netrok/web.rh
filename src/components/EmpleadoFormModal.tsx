@@ -15,7 +15,12 @@ import {
   Tabs,
   Tab,
   Box,
+  Avatar,
+  IconButton,
+  Tooltip,
 } from "@mui/material";
+import PhotoCameraIcon from "@mui/icons-material/PhotoCamera";
+import DeleteIcon from "@mui/icons-material/Delete";
 import {
   createEmpleado,
   updateEmpleado,
@@ -155,6 +160,26 @@ const EMPTY_FORM: EmpleadoFormState = {
   licenciaVigencia: "",
 };
 
+// Construye la URL pública de la foto a partir del valor que viene de la BD
+const buildFotoUrl = (foto: string | null | undefined): string | null => {
+  if (!foto) return null;
+
+  // Si ya viene como URL completa, la usamos tal cual
+  if (/^https?:\/\//i.test(foto)) {
+    return foto;
+  }
+
+  // BASE del backend
+  const apiBase =
+  (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8080";
+
+
+  // Ahora sabemos que el backend sirve:
+  // file: ./uploads/empleados/<foto>
+  // url:  http://localhost:8080/uploads/empleados/<foto>
+  return `${apiBase}/uploads/empleados/${foto}`;
+};
+
 const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
   open,
   onClose,
@@ -169,6 +194,8 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
 
   // archivo físico de foto
   const [fotoFile, setFotoFile] = useState<File | null>(null);
+  // preview (blob o URL de backend)
+  const [fotoPreview, setFotoPreview] = useState<string | null>(null);
 
   const esEdicion = !!empleado;
 
@@ -246,14 +273,25 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
           : "",
       });
       setFotoFile(null);
+      setFotoPreview(buildFotoUrl(empleado.foto));
     } else {
       setForm(EMPTY_FORM);
       setFotoFile(null);
+      setFotoPreview(null);
     }
     setErrors({});
     setSubmitError(null);
     setTabIndex(0);
   }, [empleado, open]);
+
+  // Limpieza de blob URL al desmontar
+  useEffect(() => {
+    return () => {
+      if (fotoPreview?.startsWith("blob:")) {
+        URL.revokeObjectURL(fotoPreview);
+      }
+    };
+  }, [fotoPreview]);
 
   const handleChange =
     (field: keyof EmpleadoFormState) =>
@@ -269,9 +307,29 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
   ) => {
     const file = event.target.files?.[0] ?? null;
     setFotoFile(file);
+
     if (file) {
+      // guardamos el nombre en el form (se manda al backend en el campo foto)
       setForm((prev) => ({ ...prev, foto: file.name }));
+
+      // preview local
+      const url = URL.createObjectURL(file);
+      setFotoPreview((prev) => {
+        if (prev && prev.startsWith("blob:")) {
+          URL.revokeObjectURL(prev);
+        }
+        return url;
+      });
     }
+  };
+
+  const handleClearFoto = () => {
+    if (fotoPreview?.startsWith("blob:")) {
+      URL.revokeObjectURL(fotoPreview);
+    }
+    setFotoPreview(null);
+    setFotoFile(null);
+    setForm((prev) => ({ ...prev, foto: "" }));
   };
 
   const handleTabChange = (_: React.SyntheticEvent, newValue: number) => {
@@ -665,35 +723,77 @@ const EmpleadoFormModal: React.FC<EmpleadoFormModalProps> = ({
                 />
               </Stack>
 
-              <TextField
-                label="Foto (URL / nombre archivo)"
-                value={form.foto}
-                onChange={handleChange("foto")}
-                fullWidth
-                size="small"
-                error={!!errors.foto}
-                helperText={errors.foto}
-              />
-
-              <Button
-                variant="outlined"
-                component="label"
-                size="small"
-                sx={{ alignSelf: "flex-start" }}
-              >
-                Seleccionar archivo
-                <input
-                  type="file"
-                  accept="image/*"
-                  hidden
-                  onChange={handleFotoFileChange}
-                />
-              </Button>
-              {fotoFile && (
-                <Typography variant="body2" color="text.secondary">
-                  Archivo seleccionado: {fotoFile.name}
+              {/* Foto / avatar */}
+              <Box>
+                <Typography
+                  variant="subtitle2"
+                  color="text.secondary"
+                  sx={{ mb: 1 }}
+                >
+                  Foto del empleado
                 </Typography>
-              )}
+
+                <Stack direction="row" spacing={3} alignItems="center">
+                  {/* Preview */}
+                  <Avatar
+                    src={fotoPreview || undefined}
+                    sx={{ width: 96, height: 96, fontSize: 32 }}
+                  >
+                    {form.nombres?.[0] || "?"}
+                  </Avatar>
+
+                  {/* Controles */}
+                  <Stack spacing={1}>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <input
+                        type="file"
+                        accept="image/*"
+                        id="foto-file-input"
+                        hidden
+                        onChange={handleFotoFileChange}
+                      />
+                      <label htmlFor="foto-file-input">
+                        <Button
+                          variant="outlined"
+                          component="span"
+                          size="small"
+                          startIcon={<PhotoCameraIcon />}
+                        >
+                          Seleccionar foto
+                        </Button>
+                      </label>
+
+                      {fotoPreview && (
+                        <Tooltip title="Quitar foto">
+                          <IconButton
+                            color="error"
+                            size="small"
+                            onClick={handleClearFoto}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                    </Stack>
+
+                    <TextField
+                      label="Foto (URL / nombre archivo)"
+                      value={form.foto}
+                      onChange={handleChange("foto")}
+                      fullWidth
+                      size="small"
+                      error={!!errors.foto}
+                      helperText={errors.foto}
+                    />
+
+                    <Typography variant="caption" color="text.secondary">
+                      Si el empleado ya tiene foto guardada, se carga desde el
+                      backend. Al seleccionar un archivo nuevo, se muestra una
+                      vista previa local.
+                    </Typography>
+                  </Stack>
+                </Stack>
+              </Box>
 
               <Divider />
 
