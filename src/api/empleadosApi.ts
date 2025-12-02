@@ -21,7 +21,10 @@ export interface Empleado {
   curp: string | null;
   rfc: string | null;
   nss: string | null;
+
+  // foto en BD (ej. nombre archivo) y URL resuelta por el backend
   foto: string | null;
+  fotoUrl?: string | null;
 
   // FK simples (ids)
   departamentoId: number | null;
@@ -63,6 +66,12 @@ export interface Empleado {
   imssRegPatronal: string | null;
   infonavitNumero: string | null;
   fonacotNumero: string | null;
+
+  // campos “derivados” útiles para el detalle / ficha
+  departamento?: string | null;
+  puesto?: string | null;
+  supervisorNombre?: string | null;
+  direccionCompleta?: string | null;
 }
 
 export interface EmpleadosPage {

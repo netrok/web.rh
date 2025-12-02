@@ -16,6 +16,7 @@ import {
 import {
   Edit as EditIcon,
   Delete as DeleteIcon,
+  Visibility as VisibilityIcon,
 } from "@mui/icons-material";
 import type { Empleado } from "../api/empleadosApi";
 
@@ -26,9 +27,11 @@ export interface EmpleadosTableProps {
   onPageChange: (page: number) => void; // 0-based
   onEdit: (empleado: Empleado) => void;
   onDelete: (empleado: Empleado) => void;
+  onView: (empleado: Empleado) => void; // 👈 nuevo callback para "Ver"
 
-  canEdit?: boolean;    // opcional
-  canDelete?: boolean;  // opcional
+  canEdit?: boolean;
+  canDelete?: boolean;
+  canView?: boolean;
 }
 
 function formatearNombre(e: Empleado) {
@@ -48,8 +51,10 @@ const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
   onPageChange,
   onEdit,
   onDelete,
+  onView,
   canEdit = true,
   canDelete = true,
+  canView = true,
 }) => {
   const handlePageChange = (
     _: React.ChangeEvent<unknown>,
@@ -146,25 +151,41 @@ const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
 
                 {/* Acciones */}
                 <TableCell align="right">
+                  {canView && (
+                    <Tooltip title="Ver detalle">
+                      <IconButton
+                        size="small"
+                        onClick={() => onView(e)}
+                        aria-label="Ver empleado"
+                      >
+                        <VisibilityIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+
                   {canEdit && (
-                    <IconButton
-                      size="small"
-                      onClick={() => onEdit(e)}
-                      aria-label="Editar empleado"
-                    >
-                      <EditIcon fontSize="small" />
-                    </IconButton>
+                    <Tooltip title="Editar">
+                      <IconButton
+                        size="small"
+                        onClick={() => onEdit(e)}
+                        aria-label="Editar empleado"
+                      >
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   )}
 
                   {canDelete && (
-                    <IconButton
-                      size="small"
-                      color="error"
-                      onClick={() => onDelete(e)}
-                      aria-label="Eliminar empleado"
-                    >
-                      <DeleteIcon fontSize="small" />
-                    </IconButton>
+                    <Tooltip title="Eliminar">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => onDelete(e)}
+                        aria-label="Eliminar empleado"
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   )}
                 </TableCell>
               </TableRow>

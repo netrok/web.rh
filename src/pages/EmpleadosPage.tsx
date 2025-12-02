@@ -11,6 +11,7 @@ import { EmpleadosStats } from "../components/EmpleadosStats";
 import EmpleadosTable from "../components/EmpleadosTable";
 import EmpleadoFormModal from "../components/EmpleadoFormModal";
 import { ConfirmDeleteDialog } from "../components/ConfirmDeleteDialog";
+import { EmpleadoViewDialog } from "../components/EmpleadoViewDialog";
 import { useAuth } from "../context/AuthContext";
 
 const EmpleadosPage: React.FC = () => {
@@ -36,6 +37,10 @@ const EmpleadosPage: React.FC = () => {
 
   const [openConfirmDelete, setOpenConfirmDelete] = useState(false);
   const [empleadoDelete, setEmpleadoDelete] = useState<Empleado | null>(null);
+
+  // 👉 nuevo: modal de solo lectura
+  const [openView, setOpenView] = useState(false);
+  const [empleadoView, setEmpleadoView] = useState<Empleado | null>(null);
 
   // --- Carga de empleados (paginado) ---
   const cargarEmpleados = async (pageToLoad: number = page) => {
@@ -84,7 +89,12 @@ const EmpleadosPage: React.FC = () => {
     void cargarEmpleados(newPage);
   };
 
-  // --- Tabla: editar / eliminar ---
+  // --- Tabla: ver / editar / eliminar ---
+  const handleVerEmpleado = (empleado: Empleado) => {
+    setEmpleadoView(empleado);
+    setOpenView(true);
+  };
+
   const handleEditar = (empleado: Empleado) => {
     if (!canEdit) return;
     setEmpleadoEdit(empleado);
@@ -178,6 +188,7 @@ const EmpleadosPage: React.FC = () => {
             onPageChange={handlePageChange}
             onEdit={handleEditar}
             onDelete={handleSolicitarEliminar}
+            onView={handleVerEmpleado}  // 👈 integra el botón "Ver"
             canEdit={canEdit}
             canDelete={canDelete}
           />
@@ -207,6 +218,15 @@ const EmpleadosPage: React.FC = () => {
           setEmpleadoDelete(null);
         }}
         onConfirm={handleConfirmarEliminar}
+      />
+
+      <EmpleadoViewDialog
+        open={openView}
+        onClose={() => {
+          setOpenView(false);
+          setEmpleadoView(null);
+        }}
+        empleado={empleadoView}
       />
     </Box>
   );
