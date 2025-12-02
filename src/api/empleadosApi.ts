@@ -1,5 +1,5 @@
 // src/api/empleadosApi.ts
-import { apiClient } from "./apiClient";
+import apiClient from "./apiClient";
 
 // ----- Tipos -----
 
@@ -83,7 +83,7 @@ export interface EmpleadosPage {
 
 // Parámetros cómodos para el front
 export type GetEmpleadosOptions = {
-  page?: number;       // 0-based
+  page?: number;        // 0-based
   size?: number;
   search?: string;
   soloActivos?: boolean; // true = solo activos, false/undefined = todos
@@ -198,4 +198,26 @@ export async function updateEmpleado(
 
 export async function deleteEmpleado(id: number): Promise<void> {
   await apiClient.delete(`/api/empleados/${id}`);
+}
+
+// 👇 nueva función para subir foto (única)
+export async function uploadEmpleadoFoto(
+  id: number,
+  file: File
+): Promise<Empleado> {
+  const formData = new FormData();
+  // debe coincidir con el nombre que espera el backend (@RequestParam / @RequestPart)
+  formData.append("foto", file);
+
+  const { data } = await apiClient.put<Empleado>(
+    `/api/empleados/${id}/foto`,
+    formData,
+    {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    }
+  );
+
+  return data;
 }

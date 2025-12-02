@@ -27,8 +27,8 @@ export interface EmpleadosTableProps {
   onEdit: (empleado: Empleado) => void;
   onDelete: (empleado: Empleado) => void;
 
-  canEdit?: boolean;    // nuevo
-  canDelete?: boolean;  // nuevo
+  canEdit?: boolean;    // opcional
+  canDelete?: boolean;  // opcional
 }
 
 function formatearNombre(e: Empleado) {
@@ -45,12 +45,15 @@ const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
   canEdit = true,
   canDelete = true,
 }) => {
-  const handlePageChange = (_: React.ChangeEvent<unknown>, newPage: number) => {
+  const handlePageChange = (
+    _: React.ChangeEvent<unknown>,
+    newPage: number
+  ) => {
     // Pagination es 1-based; convertimos a 0-based para el padre
     onPageChange(newPage - 1);
   };
 
-  const columnsCount = 8; // número total de columnas visibles
+  const columnsCount = 10; // número total de columnas visibles
 
   return (
     <>
@@ -60,6 +63,8 @@ const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
             <TableCell>ID</TableCell>
             <TableCell>Número</TableCell>
             <TableCell>Nombre</TableCell>
+            <TableCell>CURP</TableCell>
+            <TableCell>RFC</TableCell>
             <TableCell>Teléfono</TableCell>
             <TableCell>Email</TableCell>
             <TableCell>Fecha ingreso</TableCell>
@@ -91,12 +96,18 @@ const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
                 }}
               >
                 <TableCell>{e.id}</TableCell>
+
                 <TableCell>
                   <Typography variant="body2" fontWeight="bold">
                     {e.numEmpleado}
                   </Typography>
                 </TableCell>
+
                 <TableCell>{formatearNombre(e)}</TableCell>
+
+                <TableCell>{e.curp ?? "-"}</TableCell>
+                <TableCell>{e.rfc ?? "-"}</TableCell>
+
                 <TableCell>
                   {e.telefono ? (
                     <Tooltip title={e.telefono}>
@@ -106,6 +117,7 @@ const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
                     "-"
                   )}
                 </TableCell>
+
                 <TableCell>
                   {e.email ? (
                     <Tooltip title={e.email}>
@@ -115,7 +127,9 @@ const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
                     "-"
                   )}
                 </TableCell>
-                <TableCell>{e.fechaIngreso}</TableCell>
+
+                <TableCell>{e.fechaIngreso ?? ""}</TableCell>
+
                 <TableCell>
                   <Chip
                     label={e.activo ? "Activo" : "Inactivo"}
@@ -123,6 +137,7 @@ const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
                     size="small"
                   />
                 </TableCell>
+
                 <TableCell align="right">
                   {canEdit && (
                     <IconButton
@@ -133,6 +148,7 @@ const EmpleadosTable: React.FC<EmpleadosTableProps> = ({
                       <EditIcon fontSize="small" />
                     </IconButton>
                   )}
+
                   {canDelete && (
                     <IconButton
                       size="small"
