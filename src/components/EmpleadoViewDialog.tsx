@@ -21,9 +21,6 @@ type EmpleadoViewDialogProps = {
   empleado: Empleado | null;
 };
 
-// Tomamos la baseURL del apiClient para armar la URL del PDF
-const API_BASE_URL = apiClient.defaults.baseURL ?? "";
-
 export function EmpleadoViewDialog({
   open,
   onClose,
@@ -31,13 +28,35 @@ export function EmpleadoViewDialog({
 }: EmpleadoViewDialogProps) {
   if (!empleado) return null;
 
-  const handleVerFichaPdf = () => {
-    const base =
-      API_BASE_URL !== "" ? API_BASE_URL : "/api"; // fallback por si no tiene baseURL
-    // si baseURL ya termina en /api, no pasa nada, solo asegúrate de que concuerde con tu backend
-    const url = `${base}/empleados/${empleado.id}/ficha.pdf`;
+  const handleVerFichaPdf = async () => {
+  if (!empleado) return;
+
+  try {
+    const response = await apiClient.get(
+      `/api/empleados/${empleado.id}/ficha.pdf`,
+      {
+        responseType: "blob",
+      }
+    );
+
+    const blob = new Blob([response.data], { type: "application/pdf" });
+    const url = URL.createObjectURL(blob);
     window.open(url, "_blank", "noopener,noreferrer");
-  };
+  } catch (error: any) {
+    console.error("Error al abrir ficha PDF del empleado", error);
+
+    // feedback rápido para ti
+    const status = error?.response?.status;
+    const msgBackend =
+      error?.response?.data?.message || error?.message || "Error desconocido";
+
+    window.alert(
+      `No se pudo generar la ficha PDF (status ${status ?? "?"}).\n` +
+        `Detalle: ${msgBackend}`
+    );
+  }
+};
+
 
   const nombreCompleto = `${empleado.nombres} ${empleado.apellidoPaterno} ${
     empleado.apellidoMaterno ?? ""
@@ -53,7 +72,7 @@ export function EmpleadoViewDialog({
           spacing={3}
           alignItems={{ xs: "stretch", md: "flex-start" }}
         >
-          {/* Columna foto + básicos */}
+          {/* Foto + datos principales */}
           <Stack
             spacing={2}
             alignItems="center"
@@ -83,7 +102,7 @@ export function EmpleadoViewDialog({
             </Typography>
           </Stack>
 
-          {/* Columna datos */}
+          {/* Datos detallados */}
           <Stack spacing={2} flex={1}>
             {/* Datos generales */}
             <Box>
