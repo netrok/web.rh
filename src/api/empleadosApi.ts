@@ -54,7 +54,6 @@ export interface Empleado {
   banco: string | null;
   cuentaBancaria: string | null;
   clabe: string | null;
-  salarioBase: number | null;
   tipoContrato: string | null;
   tipoJornada: string | null;
   fechaBaja: string | null;
@@ -63,14 +62,7 @@ export interface Empleado {
   // IMSS / INFONAVIT / FONACOT
   imssRegPatronal: string | null;
   infonavitNumero: string | null;
-  infonavitDescuentoTipo: string | null;
-  infonavitDescuentoValor: number | null;
   fonacotNumero: string | null;
-
-  // licencia
-  licenciaNumero: string | null;
-  licenciaTipo: string | null;
-  licenciaVigencia: string | null;
 }
 
 export interface EmpleadosPage {
@@ -134,7 +126,6 @@ export interface EmpleadoCreateRequest {
   banco?: string | null;
   cuentaBancaria?: string | null;
   clabe?: string | null;
-  salarioBase?: number | null;
   tipoContrato?: string | null;
   tipoJornada?: string | null;
   fechaBaja?: string | null;
@@ -142,13 +133,7 @@ export interface EmpleadoCreateRequest {
 
   imssRegPatronal?: string | null;
   infonavitNumero?: string | null;
-  infonavitDescuentoTipo?: string | null;
-  infonavitDescuentoValor?: number | null;
   fonacotNumero?: string | null;
-
-  licenciaNumero?: string | null;
-  licenciaTipo?: string | null;
-  licenciaVigencia?: string | null;
 }
 
 // payload de actualización
@@ -192,7 +177,10 @@ export async function updateEmpleado(
   id: number,
   payload: EmpleadoUpdateRequest
 ): Promise<Empleado> {
-  const { data } = await apiClient.put<Empleado>(`/api/empleados/${id}`, payload);
+  const { data } = await apiClient.put<Empleado>(
+    `/api/empleados/${id}`,
+    payload
+  );
   return data;
 }
 
@@ -200,24 +188,18 @@ export async function deleteEmpleado(id: number): Promise<void> {
   await apiClient.delete(`/api/empleados/${id}`);
 }
 
-// 👇 nueva función para subir foto (única)
+// Subida de foto (coincide con EmpleadoFotoController)
 export async function uploadEmpleadoFoto(
   id: number,
   file: File
-): Promise<Empleado> {
+): Promise<void> {
   const formData = new FormData();
-  // debe coincidir con el nombre que espera el backend (@RequestParam / @RequestPart)
-  formData.append("foto", file);
+  // debe coincidir con @RequestParam("file")
+  formData.append("file", file);
 
-  const { data } = await apiClient.put<Empleado>(
-    `/api/empleados/${id}/foto`,
-    formData,
-    {
-      headers: {
-        "Content-Type": "multipart/form-data",
-      },
-    }
-  );
-
-  return data;
+  await apiClient.post(`/api/empleados/${id}/foto`, formData, {
+    headers: {
+      "Content-Type": "multipart/form-data",
+    },
+  });
 }

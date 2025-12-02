@@ -158,7 +158,9 @@ const EMPTY_FORM: EmpleadoFormState = {
   fonacotNumero: "",
 };
 
-// Construye la URL pública de la foto a partir del valor que viene de la BD
+// ✅ Construye la URL pública de la foto a partir del valor que viene de la BD
+// BD: "empleados/1/foto-1.jpg"
+// URL pública: http://localhost:8080/uploads/empleados/1/foto-1.jpg
 const buildFotoUrl = (foto: string | null | undefined): string | null => {
   if (!foto) return null;
 
@@ -167,15 +169,15 @@ const buildFotoUrl = (foto: string | null | undefined): string | null => {
     return foto;
   }
 
-  // BASE del backend
+  // Evitamos el error de TypeScript casteando import.meta a any
   const apiBase =
     (import.meta as any).env?.VITE_API_BASE_URL ?? "http://localhost:8080";
 
-  // El backend sirve:
-  // file: ./uploads/empleados/<foto>
-  // url:  http://localhost:8080/uploads/empleados/<foto>
-  return `${apiBase}/uploads/empleados/${foto}`;
+  // BD: "empleados/1/foto-1.jpg"
+  // URL: http://localhost:8080/uploads/empleados/1/foto-1.jpg
+  return `${apiBase}/uploads/${foto}`;
 };
+
 
 const parseNumberOrNull = (value: string): number | null => {
   if (!value) return null;
